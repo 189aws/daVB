@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 设置钱包地址
-WORKER_WALLET_ADDRESS=8sTHteGbN5bi3jRCg3XxP5LYmuBBUiDHPfLC2GUfxZES
+WORKER_WALLET_ADDRESS=NDra2V4VA7R236T2fptbaPRo72pp3CFHHVxWkH59999
 # 设置命令
 COMMAND_BASE="./ore-mine-pool-linux-avx512 worker --server-url http://mine.oreminepool.top/ --worker-wallet-address ${WORKER_WALLET_ADDRESS}"
 
