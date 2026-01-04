@@ -17,6 +17,18 @@ trap "rm -rf $TEMP_DIR >/dev/null 2>&1 ; echo -e '\n' ;exit" INT QUIT TERM EXIT
 
 mkdir -p $TEMP_DIR
 
+# 直连版 - 直接设置最新版本号（手动更新）
+STABLE_LATEST_VERSION="v1.2.3"
+DEV_LATEST_VERSION="v1.3.0"
+LTS_LATEST_VERSION="v1.1.5"
+STABLE_VERSION_NUM="1.2.3"
+DEV_VERSION_NUM="1.3.0" 
+LTS_VERSION_NUM="1.1.5"
+REMOTE_VERSION="Stable: v1.2.3
+Development: v1.3.0
+LTS: v1.1.5"
+
+
 E[0]="\n Language:\n 1. 简体中文 (Default)\n 2. English"
 C[0]="${E[0]}"
 E[1]="1. Supports three versions: stable, development, and classic; 2. Supports switching between the three versions (np -t); 3. Added GitHub proxy"
@@ -544,18 +556,6 @@ check_port() {
 
     return 0  # 返回0表示端口可用
   fi
-}
-
-# 检测是否需要启用 Github CDN，如能直接连通，则不使用
-check_cdn() {
-  for PROXY_URL in "${GITHUB_PROXY[@]}"; do
-    if [ "$DOWNLOAD_TOOL" = "curl" ]; then
-      REMOTE_VERSION=$(curl -ksL --connect-timeout 3 --max-time 3 ${PROXY_URL}https://raw.githubusercontent.com/NodePassProject/npsh/refs/heads/main/README_EN.md 2>/dev/null | sed -nE 's/^-[ ]+(Stable|Development|LTS):/\1:/p')
-    else
-      REMOTE_VERSION=$(wget -qO- --no-check-certificate --tries=2 --timeout=3 ${PROXY_URL}https://raw.githubusercontent.com/NodePassProject/npsh/refs/heads/main/README_EN.md 2>/dev/null | sed -nE 's/^-[ ]+(Stable|Development|LTS):/\1:/p')
-    fi
-    grep -q 'Stable' <<< "$REMOTE_VERSION" && GH_PROXY="$PROXY_URL" && break
-  done
 }
 
 # 脚本当天及累计运行次数统计
