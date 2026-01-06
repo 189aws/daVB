@@ -2,7 +2,7 @@
 
 # =================配置区域=================
 # 设置监听端口
-LISTEN_PORT=9989
+LISTEN_PORT=12332
 # 设置固定密码
 PASSWORD='AAAACchacha20chacha209AAAAA'
 # 设置加密方式 (推荐 aes-256-gcm)
