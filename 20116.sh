@@ -2,7 +2,7 @@
 
 # =================配置区域=================
 # 设置监听端口
-LISTEN_PORT=19551
+LISTEN_PORT=20116
 # 设置固定密码
 PASSWORD='AAAACchacha20chacha209AAAAA'
 # 设置加密方式 (推荐 aes-256-gcm或chacha20-ietf-poly1305)
