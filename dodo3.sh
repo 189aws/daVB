@@ -6,7 +6,7 @@
 SS_PORT=6666
 SS_PASSWORD="AAAACchacha20chacha209AAAAA"
 SS_METHOD="chacha20-ietf-poly1305"
-DOH_URL="https://8.8.8.8/dns-query"
+DOH_URL="https://1.1.1.2/dns-query"
 
 # ==========================================
 # 2. 基础环境安装 (修复 Debian 兼容性)
