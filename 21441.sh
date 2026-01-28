@@ -31,8 +31,8 @@ rm realm.tar.gz
 mkdir -p /etc/realm
 cat <<EOF > /etc/realm/config.toml
 [[endpoints]]
-listen = "0.0.0.0:14666"
-remote = "78.12.24.24:20092"
+listen = "0.0.0.0:21441"
+remote = "78.12.20.142:20092"
 EOF
 
 # 4. 写入 Systemd 服务
