@@ -3,7 +3,7 @@
 # ==========================================
 # 1. 自定义配置区
 # ==========================================
-SS_PORT=50666
+SS_PORT=51221
 SS_PASSWORD="AAAACchacha20chacha209AAAAA"
 SS_METHOD="chacha20-ietf-poly1305"
 DOH_URL="https://223.6.6.6/dns-query"
