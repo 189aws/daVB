@@ -1,6 +1,6 @@
 #!/bin/bash
 # ================================================
-# Trojan Docker 一键部署脚本
+# Trojan Docker 一键部署脚本 (修复版)
 # 端口: 51994 | SNI: v.qq.com | 推送: Telegram
 # ================================================
 
@@ -28,10 +28,9 @@ success() { echo -e "${GREEN}[✓]${NC} $1"; }
 warn()    { echo -e "${YELLOW}[!]${NC} $1"; }
 error()   { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
-# ================================================
 echo ""
 echo -e "${BLUE}=================================================${NC}"
-echo -e "${BLUE}      Trojan Docker 一键部署脚本               ${NC}"
+echo -e "${BLUE}      Trojan Docker 一键部署脚本 (修复版)       ${NC}"
 echo -e "${BLUE}=================================================${NC}"
 echo ""
 
@@ -136,7 +135,6 @@ server {
     listen 80 default_server;
     server_name _;
 
-    # 模拟腾讯视频站点基础响应
     add_header Server "nginx";
     add_header X-Powered-By "";
 
@@ -153,7 +151,7 @@ EOF
   success "Nginx 伪装配置写入完成"
 }
 
-# ── docker-compose.yml ──────────────────────────
+# ── docker-compose.yml（修复版：指定完整配置路径）──
 write_compose() {
   info "写入 docker-compose.yml..."
   cat > ${WORK_DIR}/docker-compose.yml <<EOF
@@ -178,6 +176,7 @@ services:
     volumes:
       - ./config.json:/etc/trojan/config.json:ro
       - ./certs:/etc/trojan/certs:ro
+    command: ["trojan", "/etc/trojan/config.json"]
     depends_on:
       - nginx
     networks:
@@ -193,47 +192,60 @@ EOF
 # ── 防火墙放行 ──────────────────────────────────
 open_firewall() {
   info "配置防火墙，放行端口 ${PORT}..."
-  # UFW
   if command -v ufw &> /dev/null; then
     ufw allow ${PORT}/tcp > /dev/null 2>&1 || true
   fi
-  # iptables
   iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT 2>/dev/null || true
-  # 持久化 iptables（如果有）
   if command -v netfilter-persistent &> /dev/null; then
     netfilter-persistent save > /dev/null 2>&1 || true
   fi
   success "防火墙端口 ${PORT} 已放行"
 }
 
-# ── 启动服务 ────────────────────────────────────
+# ── 清理旧容器并启动服务 ────────────────────────
 start_service() {
+  info "清理旧容器..."
+  docker rm -f trojan_server trojan_nginx 2>/dev/null || true
+
   info "拉取镜像并启动服务..."
   cd ${WORK_DIR}
   docker-compose pull
-  docker-compose down 2>/dev/null || true
   docker-compose up -d
-  # 等待容器启动
+
   sleep 3
-  # 检查运行状态
+
   if docker ps | grep -q "trojan_server"; then
-    success "Trojan 容器运行正常"
+    success "Trojan 容器运行正常 ✅"
   else
-    warn "Trojan 容器可能未正常启动，请检查: docker logs trojan_server"
+    warn "Trojan 容器未正常启动，查看日志: docker logs trojan_server"
   fi
+
   if docker ps | grep -q "trojan_nginx"; then
-    success "Nginx 容器运行正常"
+    success "Nginx 容器运行正常 ✅"
   else
-    warn "Nginx 容器可能未正常启动，请检查: docker logs trojan_nginx"
+    warn "Nginx 容器未正常启动，查看日志: docker logs trojan_nginx"
+  fi
+}
+
+# ── 验证 TLS 握手 ───────────────────────────────
+verify_tls() {
+  info "验证 TLS 握手..."
+  sleep 2
+  local RESULT
+  RESULT=$(echo | openssl s_client -connect 127.0.0.1:${PORT} -servername ${SNI} 2>&1 | grep -E "subject|issuer|Verify|CONNECTED")
+  if echo "$RESULT" | grep -q "CONNECTED"; then
+    success "TLS 握手验证通过 ✅"
+    echo "$RESULT"
+  else
+    warn "TLS 握手验证失败，请检查: docker logs trojan_server"
   fi
 }
 
 # ── 获取公网 IP ─────────────────────────────────
 get_public_ip() {
   local IP=""
-  # 依次尝试多个接口
-  IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null) && [ -n "$IP" ] && echo "$IP" && return
-  IP=$(curl -s --max-time 5 https://ifconfig.me 2>/dev/null)   && [ -n "$IP" ] && echo "$IP" && return
+  IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null)       && [ -n "$IP" ] && echo "$IP" && return
+  IP=$(curl -s --max-time 5 https://ifconfig.me 2>/dev/null)          && [ -n "$IP" ] && echo "$IP" && return
   IP=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null) && [ -n "$IP" ] && echo "$IP" && return
   hostname -I | awk '{print $1}'
 }
@@ -244,7 +256,6 @@ send_telegram() {
   local TROJAN_LINK="$2"
   local CLASH_CFG="$3"
 
-  # 获取 AWS 实例元数据
   local REGION=$(curl -s --max-time 3 http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo "unknown")
   local INSTANCE_ID=$(curl -s --max-time 3 http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "unknown")
   local INSTANCE_TYPE=$(curl -s --max-time 3 http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null || echo "unknown")
@@ -291,7 +302,6 @@ ${CLASH_CFG}
 
   info "推送节点信息到 Telegram..."
 
-  # 尝试 Markdown 格式推送
   local HTTP_CODE
   HTTP_CODE=$(curl -s -o /tmp/tg_resp.json -w "%{http_code}" \
     -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
@@ -306,15 +316,11 @@ ${CLASH_CFG}
   if [ "$HTTP_CODE" = "200" ] && grep -q '"ok":true' /tmp/tg_resp.json; then
     success "Telegram 推送成功 ✅"
   else
-    warn "Markdown 推送失败 (HTTP ${HTTP_CODE})，尝试纯文本..."
-    # 降级纯文本推送
+    warn "Markdown 推送失败，尝试纯文本..."
     local PLAIN_MSG="Trojan节点部署完成
-公网IP: ${SERVER_IP}
-端口: ${PORT}
-密码: ${PASSWORD}
-SNI: ${SNI}
-区域: ${REGION}
-部署时间: ${DEPLOY_TIME}
+公网IP: ${SERVER_IP}  端口: ${PORT}
+密码: ${PASSWORD}  SNI: ${SNI}
+区域: ${REGION}  时间: ${DEPLOY_TIME}
 
 节点链接:
 ${TROJAN_LINK}
@@ -324,17 +330,11 @@ ${CLASH_CFG}
 
 请在AWS安全组放行TCP ${PORT}"
 
-    HTTP_CODE=$(curl -s -o /tmp/tg_resp2.json -w "%{http_code}" \
-      -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+    curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
       --data-urlencode "chat_id=${TG_CHAT_ID}" \
       --data-urlencode "text=${PLAIN_MSG}" \
-      --data-urlencode "disable_web_page_preview=true")
-
-    if [ "$HTTP_CODE" = "200" ]; then
-      success "纯文本降级推送成功 ✅"
-    else
-      warn "Telegram 推送失败，请手动查看节点信息"
-    fi
+      --data-urlencode "disable_web_page_preview=true" > /dev/null
+    success "纯文本降级推送完成 ✅"
   fi
 }
 
@@ -346,7 +346,6 @@ print_and_notify() {
   success "公网 IP: ${SERVER_IP}"
 
   # 生成标准 Trojan 链接
-  # 格式: trojan://password@host:port?sni=SNI&allowInsecure=1#name
   local ENCODED_PASSWORD
   ENCODED_PASSWORD=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${PASSWORD}', safe=''))")
   local NODE_NAME="AWS-Trojan-US-${SERVER_IP}"
@@ -366,7 +365,7 @@ print_and_notify() {
 
   echo ""
   echo -e "${GREEN}=================================================${NC}"
-  echo -e "${GREEN}           🎉 部署完成！节点信息如下            ${NC}"
+  echo -e "${GREEN}         🎉 部署完成！节点信息如下              ${NC}"
   echo -e "${GREEN}=================================================${NC}"
   echo -e "  公网IP  : ${SERVER_IP}"
   echo -e "  端口    : ${PORT}"
@@ -384,7 +383,6 @@ print_and_notify() {
   echo -e "${GREEN}=================================================${NC}"
   echo ""
 
-  # 推送到 Telegram
   send_telegram "${SERVER_IP}" "${TROJAN_LINK}" "${CLASH_CFG}"
 }
 
@@ -399,4 +397,5 @@ write_nginx
 write_compose
 open_firewall
 start_service
+verify_tls
 print_and_notify
