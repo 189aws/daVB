@@ -8,7 +8,7 @@ set -e
 
 # ── 基础配置 ────────────────────────────────────
 PASSWORD="VIOFDSckldsj@joflllll"
-PORT=8444
+PORT=8443
 SNI="v.qq.com"
 WORK_DIR="/opt/trojan"
 
