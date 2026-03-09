@@ -9,7 +9,7 @@ TG_CHAT_ID="1792396794"
 
 TROJAN_PORT=50555
 TROJAN_PASSWORD="BinldLDAkkfda51588AAA"
-SNI_DOMAIN="aws.com"
+SNI_DOMAIN="bing.com"
 DOH_URL="https://223.6.6.6/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
