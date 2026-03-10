@@ -7,7 +7,7 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=50555
+TROJAN_PORT=50222
 TROJAN_PASSWORD="BinldLDAkkfda51588AAA"
 SNI_DOMAIN="bing.com"
 DOH_URL="https://223.6.6.6/dns-query"
@@ -56,7 +56,7 @@ cd "$WORK_DIR"
 # 证书只在不存在时才生成，避免重复部署时客户端指纹失效
 if [ ! -f ./cert/server.crt ] || [ ! -f ./cert/server.key ]; then
     echo ">>> 生成自签名证书..."
-    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout ./cert/server.key -out ./cert/server.crt \
         -subj "/CN=$SNI_DOMAIN"
 else
