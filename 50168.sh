@@ -7,9 +7,9 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=50222
-TROJAN_PASSWORD="BinldLDAkkfda51588AAA"
-SNI_DOMAIN="bing.com"
+TROJAN_PORT=50168
+TROJAN_PASSWORD="FGDV9VF634164648fefdase"
+SNI_DOMAIN="space.bilibili.com"
 DOH_URL="https://223.6.6.6/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
