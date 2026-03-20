@@ -7,18 +7,16 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=55443
-TROJAN_PASSWORD="GFD650G49DSF0G980gfdgfd"
-SNI_DOMAIN="360.cn"
+TROJAN_PORT=15666
+TROJAN_PASSWORD="hfgh160berG6DFS5G1FD65G1"
+SNI_DOMAIN="sogou.com"
 DOH_URL="https://223.5.5.5/dns-query"
 SINGBOX_IMAGE="ghcr.io/sagernet/sing-box:v1.10.7"
 
 # ==========================================
-# 2. 系统深度优化 (解决 UDP 丢包与并发限制)
+# 2. 系统深度优化 (UDP 与并发)
 # ==========================================
 echo ">>> 正在执行系统级 UDP 与并发优化..."
-
-# 优化内核网络栈
 sudo tee /etc/sysctl.d/99-singbox.conf <<EOF
 net.ipv4.ip_forward=1
 net.core.rmem_max=16777216
@@ -31,7 +29,6 @@ net.ipv4.conf.default.rp_filter=0
 EOF
 sudo sysctl -p /etc/sysctl.d/99-singbox.conf
 
-# 提升进程文件描述符上限
 if ! grep -q "soft nofile 1048576" /etc/security/limits.conf; then
     sudo tee -a /etc/security/limits.conf <<EOF
 * soft nofile 1048576
@@ -42,7 +39,7 @@ EOF
 fi
 
 # ==========================================
-# 3. 基础环境安装 (Docker 逻辑)
+# 3. 基础环境安装
 # ==========================================
 echo ">>> 检查并安装 Docker 环境..."
 sudo apt-get update -y && sudo apt-get install -y ca-certificates curl jq openssl
@@ -67,7 +64,7 @@ if [ ! -f ./cert/server.crt ]; then
 fi
 
 # ==========================================
-# 5. 生成 Sing-box 配置 (核心 UDP 优化)
+# 5. 生成 Sing-box 配置
 # ==========================================
 cat > config.json <<EOT
 {
@@ -120,16 +117,22 @@ sudo docker compose down 2>/dev/null || true
 sudo docker compose up -d
 
 # ==========================================
-# 7. IP 获取与 TG 推送 (逻辑保持不变)
+# 7. IP 获取与 TG 推送 (修复了这里的语法错误)
 # ==========================================
-IP=\$(curl -4 -s --max-time 5 https://api4.ipify.org || echo "YOUR_SERVER_IP")
-RAW_LINK="trojan://${TROJAN_PASSWORD}@\${IP}:${TROJAN_PORT}?sni=${SNI_DOMAIN}&allowInsecure=1#SingBox_UDP_Plus_\${IP}"
+# 尝试获取 IPv4
+SERVER_IP=$(curl -4 -s --max-time 5 https://api4.ipify.org || echo "127.0.0.1")
 
+# 构造链接
+RAW_LINK="trojan://${TROJAN_PASSWORD}@${SERVER_IP}:${TROJAN_PORT}?sni=${SNI_DOMAIN}&allowInsecure=1#SingBox_UDP_Plus_${SERVER_IP}"
+
+# 推送 Telegram
 curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
     --data-urlencode "chat_id=${TG_CHAT_ID}" \
-    --data-urlencode "text=\${RAW_LINK}"
+    --data-urlencode "text=${RAW_LINK}" > /dev/null
 
+echo ""
 echo "======================================================="
 echo "✅ Docker 部署完成且 UDP 已增强！"
-echo "链接: \$RAW_LINK"
+echo "服务器 IP: ${SERVER_IP}"
+echo "连接链接: ${RAW_LINK}"
 echo "======================================================="
