@@ -7,10 +7,10 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=50222
-TROJAN_PASSWORD="0SA56CEWA984FADS444445"
-SNI_DOMAIN="l.qq.com"
-DOH_URL="https://223.6.6.6/dns-query"
+TROJAN_PORT=9977
+TROJAN_PASSWORD="DFV09E8V484444118c919"
+SNI_DOMAIN="bing.com"
+DOH_URL="https://1.1.1.2/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
 # 如果此版本不可用，可改为 v1.9.x 或 v1.8.x
