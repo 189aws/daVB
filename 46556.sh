@@ -7,9 +7,9 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=50322
-TROJAN_PASSWORD="hgfrthrtnvn45hfgjghdfnghn"
-SNI_DOMAIN="360.cn"
+TROJAN_PORT=46556
+TROJAN_PASSWORD="hfgh160berG6DFS5G1FD65G1"
+SNI_DOMAIN="sogou.com"
 DOH_URL="https://223.5.5.5/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
