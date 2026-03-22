@@ -7,9 +7,9 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=20115
-TROJAN_PASSWORD="gergbfggfbrttrhtrhtyjnyt"
-SNI_DOMAIN="sina.cn"
+TROJAN_PORT=11522
+TROJAN_PASSWORD="VFDSFDV3435RGSFDGSDFfdsdas"
+SNI_DOMAIN="jd.cn"
 DOH_URL="https://8.8.4.4/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
