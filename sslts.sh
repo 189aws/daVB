@@ -4,9 +4,9 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
-SNI_DOMAIN="www.amazon.com"
-TLS_PWD="CorrectPassword12"
-SS_PORT=8388
+SNI_DOMAIN="www.4399.com"
+TLS_PWD="488D0CDS16465dsf4v977vdvdvd"
+SS_PORT=4466
 LISTEN_PORT=443
 # ============================
 
