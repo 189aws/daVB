@@ -7,10 +7,10 @@ set -e
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
 
-TROJAN_PORT=9979
-TROJAN_PASSWORD="V6FD0598DVF4444654156161dew"
-SNI_DOMAIN="aliyun.com"
-DOH_URL="https://1.1.1.2/dns-query"
+TROJAN_PORT=50116
+TROJAN_PASSWORD="0gaf98798g7we941g9we84gfdsfds"
+SNI_DOMAIN="meizu.com"
+DOH_URL="https://223.5.5.5/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
 # 如果此版本不可用，可改为 v1.9.x 或 v1.8.x
