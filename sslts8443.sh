@@ -4,9 +4,9 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
-SNI_DOMAIN="www.taobao.com"
-TLS_PWD="VFI09DVUF0D9VFU09DFUV00D00V00V0V"
-SS_PORT=9988
+SNI_DOMAIN="fudan.edu.cn"
+TLS_PWD="98bd4798ew4194ewf91vds60FV4D6S54644"
+SS_PORT=8443
 LISTEN_PORT=443
 # ============================
 
