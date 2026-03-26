@@ -4,8 +4,8 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
 TG_CHAT_ID="1792396794"
-SNI_DOMAIN="www.tsinghua.edu.cn"
-TLS_PWD="VDF40V9DF894114fadsfewFCDCCCCCC"
+SNI_DOMAIN="www.shu.edu.cn"
+TLS_PWD="5BGDF98DA7SF9Afs4444477777"
 SS_PORT=8443
 LISTEN_PORT=443
 # ============================
