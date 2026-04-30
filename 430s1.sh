@@ -5,9 +5,9 @@ set -e
 TG_TOKEN="8218154265:AAGotrfTH6mNxkMLPqV8HeOAqKWlcSkHVu8"
 TG_CHAT_ID="1792396794"
 SNI_DOMAIN="v.qq.com"
-TLS_PWD="FVDSASCJjjfdUJUUDDDDDDkkkkks"
-SS_PORT=9055
-LISTEN_PORT=8443
+TLS_PWD="CD156SC41D84DD5CSWWW41"
+SS_PORT=5666
+LISTEN_PORT=443
 # ============================
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -35,7 +35,7 @@ sleep 1
 
 # ── 3. 固定 SS 2022 密钥 ────────────────────────────────────────
 log "使用固定 SS 2022 密钥..."
-SS_KEY="6/1wWWBVF555DCCCC0Caas/w=="
+SS_KEY="6/1w4cujBPEwCCSSASe8/w=="
 log "SS 密钥：$SS_KEY"
 
 # ── 4. 启动内层 Shadowsocks-Rust 容器 ──────────────────────────
