@@ -8,7 +8,7 @@ echo "========== ApoolMiner (Debian 12 优化版) 自动更新安装脚本 =====
 ACCOUNT="${1:-CP_desb91pu36}"
 INSTALL_DIR="/opt/apoolminer"
 SERVICE_FILE="/etc/systemd/system/apoolminer.service"
-POOL="qubic.eu.apool.net:8080"
+POOL="qubic1.hk.apool.io:2334"
 
 # 1. 基础依赖与环境准备
 echo "正在安装系统依赖..."
