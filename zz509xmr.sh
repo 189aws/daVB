@@ -80,7 +80,7 @@ echo "启动矿工，Worker名称: \$worker"
 
 # 执行 apoolminer
 # 这里的 --algo 设置为 qubic_xmr 适配 Qubic 矿池
-exec "$INSTALL_DIR/apoolminer" --algo qubic_xmr --account "$ACCOUNT" --worker "\$worker" --pool "$POOL"
+exec "$INSTALL_DIR/apoolminer" --algo xmr --account "$ACCOUNT" --worker "\$worker" --pool "$POOL"
 EOF
 
 chmod +x "$INSTALL_DIR/run.sh"
