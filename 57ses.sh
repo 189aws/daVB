@@ -35,7 +35,7 @@ sleep 1
 
 # ── 3. 固定 SS 2022 密钥 ────────────────────────────────────────
 log "使用固定 SS 2022 密钥..."
-SS_KEY="e/ccccuedD95CAAAA944/c=="
+SS_KEY="s/ccccuDCCCJD0000599/w=="
 log "SS 密钥：$SS_KEY"
 
 # ── 4. 启动内层 Shadowsocks-Rust 容器 ──────────────────────────
