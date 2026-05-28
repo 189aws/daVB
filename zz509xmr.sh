@@ -2,7 +2,7 @@
 
 set -e
 
-echo "========== ApoolMiner (Debian 12 优化版) 自动更新安装脚本 =========="
+echo "========== ApoolMiner 自动更新安装脚本 (适配最新v3.7.0+) =========="
 
 # 默认账户和矿池配置
 ACCOUNT="${1:-CP_desb91pu36}"
@@ -33,28 +33,55 @@ else
 fi
 cd "$INSTALL_DIR"
 
-# 4. 下载最新版 Apoolminer
+# 4. 判断架构并下载最新版 Apoolminer (修复核心报错)
 echo "正在从 GitHub 获取最新版本..."
-VERSION=$(wget -qO- https://api.github.com/repos/apool-io/apoolminer/releases/latest | jq -r .tag_name)
-[ -z "$VERSION" ] && VERSION="v3.3.0"  # 兜底版本
-DOWNLOAD_URL="https://github.com/apool-io/apoolminer/releases/download/${VERSION}/apoolminer_linux_qubic_autoupdate_${VERSION}.tar.gz"
+VERSION=$(curl -s https://api.github.com/repos/apool-io/apoolminer/releases/latest | jq -r .tag_name)
+[ -z "$VERSION" ] && VERSION="v3.7.0"  # 兜底版本
 
-echo "开始下载 $VERSION..."
-wget -qO- "$DOWNLOAD_URL" | tar -zxf - -C "$INSTALL_DIR" --strip-components=1
+# 识别系统架构
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+    FILENAME="apoolminer-linux-amd64.tar.gz"
+elif [ "$ARCH" = "aarch64" ]; then
+    FILENAME="apoolminer-linux-arm64.tar.gz"
+else
+    echo "不支持的架构: $ARCH"
+    exit 1
+fi
+
+DOWNLOAD_URL="https://github.com/apool-io/apoolminer/releases/download/${VERSION}/${FILENAME}"
+
+echo "开始下载 $VERSION ($ARCH)..."
+# 使用 ghproxy 加速下载防止网络引发中断，若在海外机房可去掉前缀
+curl -L -o apoolminer.tar.gz "https://mirror.ghproxy.com/${DOWNLOAD_URL}"
+
+# 完美解压最新版结构
+tar -zxf apoolminer.tar.gz -C "$INSTALL_DIR"
+rm -f apoolminer.tar.gz
 echo "Apoolminer 版本 $VERSION 下载并解压完成。"
 
-# 5. 写入 update.sh (完全保留你要求的自动更新逻辑)
+# 5. 写入 update.sh 
 echo "写入 update.sh..."
 cat > "$INSTALL_DIR/update.sh" <<EOF
 #!/bin/bash
-LAST_VERSION=\$(wget -qO- https://api.github.com/repos/apool-io/apoolminer/releases/latest | jq -r .tag_name | cut -b 2-)
+LAST_VERSION=\$(curl -s https://api.github.com/repos/apool-io/apoolminer/releases/latest | jq -r .tag_name | cut -b 2-)
 LOCAL_VERSION=\$("$INSTALL_DIR"/apoolminer --version | awk '{print \$2}')
 [ "\$LAST_VERSION" == "\$LOCAL_VERSION" ] && echo '无更新' && exit 0
 echo "\$LAST_VERSION" | awk -F . '{print \$1\$2\$3, "LAST_VERSION"}' > /tmp/versions
 echo "\$LOCAL_VERSION" | awk -F . '{print \$1\$2\$3, "LOCAL_VERSION"}' >> /tmp/versions
 NEW_VERSION=\$(sort -n /tmp/versions | tail -1 | awk '{print \$2}')
 [ "\$NEW_VERSION" == "\$LOCAL_VERSION" ] && exit 0
-bash <(wget -qO- https://raw.githubusercontent.com/chuben/script/main/apoolminer.sh) "$ACCOUNT"
+
+# 触发自主安全迭代
+cd "$INSTALL_DIR"
+ARCH=\$(uname -m)
+[ "\$ARCH" = "x86_64" ] && FILENAME="apoolminer-linux-amd64.tar.gz"
+[ "\$ARCH" = "aarch64" ] && FILENAME="apoolminer-linux-arm64.tar.gz"
+curl -L -o apoolminer.tar.gz "https://mirror.ghproxy.com/https://github.com/apool-io/apoolminer/releases/download/v\${LAST_VERSION}/\${FILENAME}"
+systemctl stop apoolminer
+tar -zxf apoolminer.tar.gz -C "$INSTALL_DIR"
+rm -f apoolminer.tar.gz
+systemctl start apoolminer
 EOF
 
 chmod +x "$INSTALL_DIR/update.sh"
@@ -67,8 +94,7 @@ cat > "$INSTALL_DIR/run.sh" <<EOF
 # 检查并执行更新
 /bin/bash "$INSTALL_DIR/update.sh"
 
-# 仅通过 checkip.amazonaws.com 获取公网 IP 作为 Worker 名称
-# tr -d '.' 去掉点号, cut -c 1-15 限制长度
+# 获取公网 IP 作为 Worker 名称
 raw_ip=\$(curl -s --connect-timeout 5 http://checkip.amazonaws.com | tr -d '.' | tr -d '\n')
 worker=\$(echo \$raw_ip | cut -c 1-15)
 
@@ -78,8 +104,7 @@ fi
 
 echo "启动矿工，Worker名称: \$worker"
 
-# 执行 apoolminer
-# 这里的 --algo 设置为 qubic_xmr 适配 Qubic 矿池
+# 执行 apoolminer，算法指定为 xmr 适配你的 XMR 矿池
 exec "$INSTALL_DIR/apoolminer" --algo xmr --account "$ACCOUNT" --worker "\$worker" --pool "$POOL"
 EOF
 
@@ -99,7 +124,6 @@ WorkingDirectory=$INSTALL_DIR
 ExecStart=$INSTALL_DIR/run.sh
 Restart=always
 RestartSec=30
-Environment="LD_LIBRARY_PATH=$INSTALL_DIR"
 
 [Install]
 WantedBy=multi-user.target
