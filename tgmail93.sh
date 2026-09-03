@@ -27,8 +27,8 @@ from email import policy
 import requests
 
 # --- 你的配置 ---
-TOKEN     = "8218154265:AAGotrfTH6mNxkMLPqV8HeOAqKWlcSkHVu8"
-CHAT_ID   = "1792396794"
+TOKEN     = "8847461870:AAE2_ZWvgkAltdHy8y4QxYhWVGDk85JVwZs"
+CHAT_ID   = "1417748881"
 LISTEN_IP = "0.0.0.0"
 LISTEN_PORT = 25
 # ----------------
