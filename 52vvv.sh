@@ -4,10 +4,10 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="8896559295:AAHuyFbUCYQedNRORneTN9sSu0Dc7lWyoFo"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="aws.amazon.com"
-TLS_PWD="CDSA40CD6S97489fFDSAEDc21"
-SS_PORT=45001
-LISTEN_PORT=44001
+SNI_DOMAIN="uc.cn"
+TLS_PWD="CDSAFADS90V00EESAEDc21"
+SS_PORT=46222
+LISTEN_PORT=38811
 # ============================
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -35,7 +35,7 @@ sleep 1
 
 # ── 3. 固定 SS 2022 密钥 ────────────────────────────────────────
 log "使用固定 SS 2022 密钥..."
-SS_KEY="s/ccce222wwJDrr4d4dd/w=="
+SS_KEY="s/ccce222wwJ1911d4dd/w=="
 log "SS 密钥：$SS_KEY"
 
 # ── 4. 启动内层 Shadowsocks-Rust 容器 ──────────────────────────
