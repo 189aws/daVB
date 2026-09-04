@@ -4,8 +4,8 @@ set -e
 # ==========================================
 # 1. 自定义配置区
 # ==========================================
-TG_TOKEN="7756669471:AAFstxnzCweHItNptwOf7UU-p6xj3pwnAI8"
-TG_CHAT_ID="1792396794"
+TG_TOKEN="8896559295:AAHuyFbUCYQedNRORneTN9sSu0Dc7lWyoFo"
+TG_CHAT_ID="1417748881"
 
 TROJAN_PORT=9977
 TROJAN_PASSWORD="DFV09E8V484444118c919"
