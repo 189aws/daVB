@@ -9,8 +9,8 @@ TG_CHAT_ID="1417748881"
 
 TROJAN_PORT=9977
 TROJAN_PASSWORD="DFV09E8V484444118c919"
-SNI_DOMAIN="aws.amazon.com"
-DOH_URL="https://8.8.8.8/dns-query"
+SNI_DOMAIN="jd.com"
+DOH_URL="https://223.5.5.5/dns-query"
 
 # 锁定稳定版本，避免 latest 镜像更新导致配置格式变化
 # 如果此版本不可用，可改为 v1.9.x 或 v1.8.x
