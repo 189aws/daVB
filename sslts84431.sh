@@ -1,12 +1,13 @@
+
 #!/bin/bash
 set -e
 
 # ========== 配置区 ==========
 TG_TOKEN="8896559295:AAHuyFbUCYQedNRORneTN9sSu0Dc7lWyoFo"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="3m.com"
-TLS_PWD="fsaew9191vcbgfvfwe984va1f25va5we11"
-SS_PORT=31854
+SNI_DOMAIN="bing.com"
+TLS_PWD="880ESD4S8DV1S8D8D9D11AA1DVS2v"
+SS_PORT=30225
 LISTEN_PORT=443
 # ============================
 
@@ -35,7 +36,7 @@ sleep 1
 
 # ── 3. 固定 SS 2022 密钥 ────────────────────────────────────────
 log "使用固定 SS 2022 密钥..."
-SS_KEY="7/1w49ss9911512CDDVcc/c=="
+SS_KEY="6/1w4cDECA66CAGlyRcc/w=="
 log "SS 密钥：$SS_KEY"
 
 # ── 4. 启动内层 Shadowsocks-Rust 容器 ──────────────────────────
