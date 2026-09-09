@@ -2,7 +2,7 @@
 set -e
 
 # ========== 配置区 ==========
-TG_TOKEN="8896559295:AAHuyFbUCYQedNRORneTN9sSu0Dc7lWyoFo"
+TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
 TG_CHAT_ID="1417748881"
 SNI_DOMAIN="v.qq.com"
 
