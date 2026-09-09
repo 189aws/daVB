@@ -5,7 +5,7 @@ set -e
 TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
 TG_CHAT_ID="1417748881"
 # 建议换用国际大厂域名，避免注册 AWS 等海外服务时因 .cn 伪装被风控
-SNI_DOMAIN="www.microsoft.com"
+SNI_DOMAIN="aws.amazon.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
@@ -136,7 +136,7 @@ SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS202
 log "推送配置到 Telegram..."
 curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
     -d "chat_id=${TG_CHAT_ID}" \
-    --data-urlencode "text=🔗 小火箭一键链接:
+    --data-urlencode "text=
 ${SS_LINK}" >/dev/null
 
 # ── 10. 本地输出汇总 ────────────────────────────────────────────
