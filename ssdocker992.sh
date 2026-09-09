@@ -2,16 +2,15 @@
 set -e
 
 # ========== 配置区 ==========
-TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
+TG_TOKEN="8896559295:AAHuyFbUCYQedNRORneTN9sSu0Dc7lWyoFo"
 TG_CHAT_ID="1417748881"
-# 建议换用国际大厂域名，避免注册 AWS 等海外服务时因 .cn 伪装被风控
-SNI_DOMAIN="aws.amazon.com"
+SNI_DOMAIN="v.qq.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
-LISTEN_PORT=$(shuf -i 45001-50000 -n 1)    # 外部公网 Shadow-TLS 随机端口
+LISTEN_PORT=$(shuf -i 45001-60000 -n 1)    # 外部公网 Shadow-TLS 随机端口
 TLS_PWD=$(openssl rand -hex 16)            # 随机 32 位 Shadow-TLS 密码
-SS_KEY=$(openssl rand -base64 32)          # 随机 Base64 SS-2022 密钥
+SS_KEY=$(openssl rand -base64 16)          # 精确生成 16 字节 Base64 密钥 (修复密钥长度报错)
 # ============================
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -113,7 +112,6 @@ SERVER_IP=$(curl -s --max-time 10 ipv4.icanhazip.com || \
 log "服务器 IP：$SERVER_IP"
 
 # ── 8. 生成 Shadowrocket 专用节点链接 ──────────────────────────
-# 格式：ss://BASE64(method:password)@host:port?shadow-tls=BASE64(JSON)#name
 log "生成节点链接..."
 
 SS_B64=$(python3 -c "
@@ -136,7 +134,7 @@ SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS202
 log "推送配置到 Telegram..."
 curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
     -d "chat_id=${TG_CHAT_ID}" \
-    --data-urlencode "text=
+    --data-urlencode "text=🔗 小火箭一键链接:
 ${SS_LINK}" >/dev/null
 
 # ── 10. 本地输出汇总 ────────────────────────────────────────────
