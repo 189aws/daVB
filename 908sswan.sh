@@ -5,7 +5,7 @@ set -e
 # ==========================================
 # 1. 自定义配置区
 # ==========================================
-TG_TOKEN="8896559295:AAHuyFbUCYQedNRORneTN9sSu0Dc7lWyoFo"
+TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
 TG_CHAT_ID="1417748881"
 
 # 50 个保证连通、支持 TLS 1.3 且未被阻断的内置伪装域名池
