@@ -150,7 +150,7 @@ else
     STATUS="❌ 启动失败"
 fi
 
-TROJAN_LINK="trojan://${PASSWORD}@${FULL_DOMAIN}:${PORT}?security=tls&type=tcp#Trojan-${FULL_DOMAIN}"
+TROJAN_LINK="trojan://${PASSWORD}@${FULL_DOMAIN}:${PORT}?peer=${FULL_DOMAIN}#Trojan-${FULL_DOMAIN}"
 
 # 7. 推送纯链接到 Telegram Bot
 TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
