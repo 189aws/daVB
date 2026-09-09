@@ -8,7 +8,7 @@ SNI_DOMAIN="v.qq.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
-LISTEN_PORT=$(shuf -i 45001-60000 -n 1)    # 外部公网 Shadow-TLS 随机端口
+LISTEN_PORT=443
 TLS_PWD=$(openssl rand -hex 16)            # 随机 32 位 Shadow-TLS 密码
 SS_KEY=$(openssl rand -base64 16)          # 精确生成 16 字节 Base64 密钥 (修复密钥长度报错)
 # ============================
@@ -134,7 +134,7 @@ SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS202
 log "推送配置到 Telegram..."
 curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
     -d "chat_id=${TG_CHAT_ID}" \
-    --data-urlencode "text=🔗 小火箭一键链接:
+    --data-urlencode "text=
 ${SS_LINK}" >/dev/null
 
 # ── 10. 本地输出汇总 ────────────────────────────────────────────
