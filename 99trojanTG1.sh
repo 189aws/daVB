@@ -153,7 +153,7 @@ fi
 TROJAN_LINK="trojan://${PASSWORD}@${FULL_DOMAIN}:${PORT}?peer=${FULL_DOMAIN}#Trojan-${FULL_DOMAIN}"
 
 # 7. 推送纯链接到 Telegram Bot
-TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
+TG_TOKEN="8896559295:AAE5gr8Rhy0I-E7ah5TGWY7IopiWfHGtQsE"
 TG_CHAT_ID="1417748881"
 
 echo "📱 [6/6] 正在推送纯链接到 Telegram..."
