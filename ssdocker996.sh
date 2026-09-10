@@ -4,7 +4,7 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="v.qq.com"
+SNI_DOMAIN="aws.amazon.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
