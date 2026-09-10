@@ -9,7 +9,7 @@ DOWNLOAD_URL="https://github.com/NodePassProject/NodePassDash/releases/download/
 
 FIXED_USER="nodepass"
 FIXED_PASS="nodepassnodepass"
-BASE_URL="http://localhost:3000"
+BASE_URL="http://localhost:1111"
 
 echo "==> 更新软件源并安装依赖..."
 sudo apt-get update
