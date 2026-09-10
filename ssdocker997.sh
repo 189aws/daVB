@@ -2,9 +2,9 @@
 set -e
 
 # ========== 配置区 ==========
-TG_TOKEN="8896559295:AAHUtZw-Q2luP3oki7UQYRmekFfVlA-o5I8"
+TG_TOKEN="8896559295:AAE5gr8Rhy0I-E7ah5TGWY7IopiWfHGtQsE"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="aws.amazon.com"
+SNI_DOMAIN="s2.hdslb.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
