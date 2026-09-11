@@ -4,7 +4,7 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="8896559295:AAE5gr8Rhy0I-E7ah5TGWY7IopiWfHGtQsE"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="v.qq.com"
+SNI_DOMAIN="acg.youku.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
