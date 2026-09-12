@@ -111,7 +111,7 @@ SERVER_IP=$(curl -s --max-time 10 ipv4.icanhazip.com || \
 [ -z "$SERVER_IP" ] && err "无法获取公网 IP"
 log "服务器 IP：$SERVER_IP"
 
-# ── 8. 生成 Clash YAML 配置 ─────────────────────────────────────
+# ── 8. 生成 Clash YAML 配置与 HTML Telegram 文本 ───────────────────
 CLASH_YAML="proxies:
   - name: \"GLOBAL_NODE\"
     type: ss
@@ -131,17 +131,24 @@ proxy-groups:
     proxies:
       - \"GLOBAL_NODE\""
 
-# 构造 Telegram 专属 Markdown 代码块文本（带 ```yaml 实现点击复制）
-TG_TEXT="\`\`\`yaml
-${CLASH_YAML}
-\`\`\`"
+# 使用 HTML 格式包裹，Telegram 客户端同样支持点击代码块一键复制
+TG_TEXT="🚀 <b>节点部署成功！</b>
+
+<code>${CLASH_YAML}</code>"
 
 # ── 9. 推送配置到 Telegram ─────────────────────────────────
 log "推送配置到 Telegram..."
-curl -s -X POST "[https://api.telegram.org/bot$](https://api.telegram.org/bot$){TG_TOKEN}/sendMessage" \
+RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
     -d "chat_id=${TG_CHAT_ID}" \
-    -d "parse_mode=MarkdownV2" \
-    --data-urlencode "text=${TG_TEXT}" >/dev/null
+    -d "parse_mode=HTML" \
+    --data-urlencode "text=${TG_TEXT}")
+
+# 检查 Telegram 返回状态
+if echo "$RESPONSE" | grep -q '"ok":true'; then
+    log "推送成功！"
+else
+    warn "Telegram 推送失败，返回信息: $RESPONSE"
+fi
 
 # ── 10. 本地输出汇总 ────────────────────────────────────────────
 echo ""
