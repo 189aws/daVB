@@ -4,11 +4,11 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="8896559295:AAHWVHQVJfoWG9v4McFg2qJgACw0nEpMxJo"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="www.panasonic.com"
+SNI_DOMAIN="www.analog.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
-LISTEN_PORT=55661
+LISTEN_PORT=443
 TLS_PWD=$(openssl rand -hex 16)            # 随机 32 位 Shadow-TLS 密码
 SS_KEY=$(openssl rand -base64 16)          # 精确生成 16 字节 Base64 密钥 (修复密钥长度报错)
 # ============================
@@ -80,7 +80,7 @@ docker run -d \
     --restart always \
     --network host \
     --entrypoint shadow-tls \
-    ghcr.io/ihciah/shadow-tls:v0.2.23 \
+    ghcr.io/ihciah/shadow-tls:v0.2.25 \
     --v3 server \
     --listen "0.0.0.0:${LISTEN_PORT}" \
     --server "127.0.0.1:${SS_PORT}" \
