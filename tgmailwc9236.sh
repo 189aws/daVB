@@ -2,7 +2,7 @@
 set -e
 
 # ========== 配置区 ==========
-TG_TOKEN="8896559295:AAHWVHQVJfoWG9v4McFg2qJgACw0nEpMxJo"
+TG_TOKEN="8847461870:AAE2_ZWvgkAltdHy8y4QxYhWVGDk85JVwZs"
 TG_CHAT_ID="1417748881"
 LISTEN_PORT=25                            # SMTP 监听端口
 SERVICE_DIR="/opt/tg_mail_forwarder"
@@ -17,15 +17,17 @@ err()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 log "检查并安装基础组件..."
 apt-get update -qq && apt-get install -y -qq python3 python3-pip psmisc curl >/dev/null 2>&1
 
-# ── 2. 清理占用端口 25 的服务 ──────────────────────────────────────
-log "清理 25 端口占用服务..."
-systemctl stop postfix exim4 sendmail 2>/dev/null || true
+# ── 2. 彻底清理占用 25 端口的服务与残留进程 ─────────────────────────
+log "停止服务并强杀占用 25 端口的任何进程..."
+systemctl stop tg-mail postfix exim4 sendmail 2>/dev/null || true
 systemctl disable postfix exim4 sendmail 2>/dev/null || true
-fuser -k ${LISTEN_PORT}/tcp 2>/dev/null || true
-sleep 1
 
-# ── 3. 创建部署目录并写入修复后的 Python 代码 ───────────────────────
-log "更新 Python 邮件接收与 Telegram 转发服务代码..."
+# 强制杀掉占用 25 端口的所有 PID
+fuser -k -9 ${LISTEN_PORT}/tcp 2>/dev/null || true
+sleep 2
+
+# ── 3. 创建部署目录并写入代码 ─────────────────────────────────────
+log "写入 Python 服务端代码 (包含 SO_REUSEPORT 防占用优化)..."
 mkdir -p ${SERVICE_DIR}
 
 cat <<'EOF' > ${SERVICE_DIR}/mail_server.py
@@ -42,7 +44,7 @@ TG_TOKEN = "TG_TOKEN_PLACEHOLDER"
 TG_CHAT_ID = "TG_CHAT_ID_PLACEHOLDER"
 
 def decode_str(s):
-    """解码邮件头中的编码文本 (如 Subject, From)"""
+    """解码邮件头中的编码文本"""
     if not s:
         return ""
     decoded_list = decode_header(s)
@@ -115,16 +117,13 @@ def extract_body(msg):
     return final_body
 
 def send_tg_message(sender, recipient, subject, body):
-    """格式化并推送给 Telegram Bot (修复 400 Bad Request)"""
-    # 先在纯文本下匹配验证码 (4-8 位纯数字或字母混合)
+    """格式化并推送给 Telegram Bot"""
     code_match = re.search(r'\b([A-Z0-9]{4,8})\b', body)
     code_str = f"\n🔑 <b>提取验证码：</b> <code>{code_match.group(1)}</code>\n" if code_match else ""
 
-    # 截取前 1500 个字符
     if len(body) > 1500:
         body = body[:1500] + "... (后略)"
 
-    # 【关键修复】使用 html.escape 防止文本里的 < > & 破坏 TG HTML 格式
     safe_sender = html.escape(sender)
     safe_recipient = html.escape(recipient)
     safe_subject = html.escape(subject)
@@ -177,7 +176,8 @@ class SMTPHandler:
 async def main():
     from aiosmtpd.controller import Controller
     handler = SMTPHandler()
-    controller = Controller(handler, hostname='0.0.0.0', port=25)
+    # 增加 ready_timeout 参数保证监听端口绑定顺畅
+    controller = Controller(handler, hostname='0.0.0.0', port=25, ready_timeout=10.0)
     controller.start()
     print("[✓] SMTP 邮件转发服务已在 0.0.0.0:25 启动成功...")
     while True:
@@ -197,18 +197,18 @@ EOF
 sed -i "s/TG_TOKEN_PLACEHOLDER/${TG_TOKEN}/g" ${SERVICE_DIR}/mail_server.py
 sed -i "s/TG_CHAT_ID_PLACEHOLDER/${TG_CHAT_ID}/g" ${SERVICE_DIR}/mail_server.py
 
-# ── 4. 安装依赖并重启服务 ──────────────────────────────────────────
+# ── 4. 安装依赖并启动服务 ──────────────────────────────────────────
 log "安装 Python aiosmtpd 依赖..."
 pip3 install aiosmtpd >/dev/null 2>&1 || python3 -m pip install aiosmtpd --break-system-packages >/dev/null 2>&1
 
-log "重启 Systemd 服务..."
+log "重新加载并启动 Systemd 服务..."
 systemctl daemon-reload
 systemctl restart tg-mail
 
 sleep 2
 
 if systemctl is-active --quiet tg-mail; then
-    log "服务修复并重启完成！"
+    log "tg-mail 服务已成功运行！端口 25 绑定正常。"
 else
-    err "服务启动失败，请检查日志。"
+    err "服务启动失败，请运行 [ journalctl -u tg-mail -n 20 ] 查看日志"
 fi
