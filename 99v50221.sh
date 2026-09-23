@@ -8,7 +8,7 @@ SNI_DOMAIN="www.coursera.org"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
-LISTEN_PORT=443
+LISTEN_PORT=50221
 TLS_PWD=$(openssl rand -hex 16)            # 随机 32 位 Shadow-TLS 密码
 SS_KEY=$(openssl rand -base64 16)          # 精确生成 16 字节 Base64 密钥 (修复密钥长度报错)
 # ============================
