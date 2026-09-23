@@ -18,14 +18,14 @@ log "检查并安装基础组件..."
 apt-get update -qq && apt-get install -y -qq python3 python3-pip psmisc curl >/dev/null 2>&1
 
 # ── 2. 清理占用端口 25 的服务 ──────────────────────────────────────
-log "清理 25 端口占用服务 (postfix / exim4 / sendmail)..."
+log "清理 25 端口占用服务..."
 systemctl stop postfix exim4 sendmail 2>/dev/null || true
 systemctl disable postfix exim4 sendmail 2>/dev/null || true
 fuser -k ${LISTEN_PORT}/tcp 2>/dev/null || true
 sleep 1
 
-# ── 3. 创建部署目录并写入 Python SMTP 服务端代码 ─────────────────
-log "配置 Python 邮件接收与 Telegram 转发服务..."
+# ── 3. 创建部署目录并写入修复后的 Python 代码 ───────────────────────
+log "更新 Python 邮件接收与 Telegram 转发服务代码..."
 mkdir -p ${SERVICE_DIR}
 
 cat <<'EOF' > ${SERVICE_DIR}/mail_server.py
@@ -36,6 +36,7 @@ import re
 import urllib.parse
 import urllib.request
 import sys
+import html
 
 TG_TOKEN = "TG_TOKEN_PLACEHOLDER"
 TG_CHAT_ID = "TG_CHAT_ID_PLACEHOLDER"
@@ -58,7 +59,7 @@ def decode_str(s):
     return "".join(result)
 
 def extract_body(msg):
-    """全兼容提取邮件正文（解决 multipart / html 单独发送导致的空正文问题）"""
+    """全兼容提取邮件正文"""
     plain_text = ""
     html_text = ""
 
@@ -67,7 +68,6 @@ def extract_body(msg):
             content_type = part.get_content_type()
             content_disposition = str(part.get("Content-Disposition"))
 
-            # 过滤掉附件
             if "attachment" in content_disposition:
                 continue
 
@@ -102,11 +102,9 @@ def extract_body(msg):
         except Exception:
             plain_text = str(msg.get_payload())
 
-    # 优先使用纯文本，次选 HTML 净化后的文本
     if plain_text.strip():
         final_body = plain_text.strip()
     elif html_text.strip():
-        # 清洗掉 HTML 标签与样式脚本
         cleaned = re.sub(r'<(script|style)[^>]*>.*?</\1>', '', html_text, flags=re.DOTALL | re.IGNORECASE)
         cleaned = re.sub(r'<[^>]+>', ' ', cleaned)
         cleaned = re.sub(r'\s+', ' ', cleaned)
@@ -117,25 +115,31 @@ def extract_body(msg):
     return final_body
 
 def send_tg_message(sender, recipient, subject, body):
-    """格式化并推送给 Telegram Bot"""
-    # 查找可能的验证码 (4-8 位纯数字或大写混合字符串)
+    """格式化并推送给 Telegram Bot (修复 400 Bad Request)"""
+    # 先在纯文本下匹配验证码 (4-8 位纯数字或字母混合)
     code_match = re.search(r'\b([A-Z0-9]{4,8})\b', body)
     code_str = f"\n🔑 <b>提取验证码：</b> <code>{code_match.group(1)}</code>\n" if code_match else ""
 
-    # 截取前 1500 个字符，防止超长 Telegram 报文报错
+    # 截取前 1500 个字符
     if len(body) > 1500:
         body = body[:1500] + "... (后略)"
+
+    # 【关键修复】使用 html.escape 防止文本里的 < > & 破坏 TG HTML 格式
+    safe_sender = html.escape(sender)
+    safe_recipient = html.escape(recipient)
+    safe_subject = html.escape(subject)
+    safe_body = html.escape(body)
 
     msg_text = (
         f"📧 <b>收到新邮件！</b>\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 <b>发件人：</b> <code>{sender}</code>\n"
-        f"📥 <b>收件人：</b> <code>{recipient}</code>\n"
-        f"📌 <b>主 题：</b> <b>{subject}</b>\n"
+        f"👤 <b>发件人：</b> <code>{safe_sender}</code>\n"
+        f"📥 <b>收件人：</b> <code>{safe_recipient}</code>\n"
+        f"📌 <b>主 题：</b> <b>{safe_subject}</b>\n"
         f"{code_str}"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📝 <b>正文内容：</b>\n"
-        f"<pre>{body}</pre>"
+        f"<pre>{safe_body}</pre>"
     )
 
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
@@ -154,7 +158,6 @@ def send_tg_message(sender, recipient, subject, body):
 
 class SMTPHandler:
     async def handle_DATA(self, server, session, envelope):
-        peer = session.peer
         mail_from = envelope.mail_from
         rcpt_tos = ", ".join(envelope.rcpt_tos)
         data = envelope.content
@@ -190,52 +193,22 @@ if __name__ == '__main__':
     asyncio.run(main())
 EOF
 
-# 动态替换脚本里的实际 TG 参数
+# 替换配置参数
 sed -i "s/TG_TOKEN_PLACEHOLDER/${TG_TOKEN}/g" ${SERVICE_DIR}/mail_server.py
 sed -i "s/TG_CHAT_ID_PLACEHOLDER/${TG_CHAT_ID}/g" ${SERVICE_DIR}/mail_server.py
 
-# ── 4. 安装 aiosmtpd 依赖包 ────────────────────────────────────────
-log "安装 Python aiosmtpd 异步邮件库..."
+# ── 4. 安装依赖并重启服务 ──────────────────────────────────────────
+log "安装 Python aiosmtpd 依赖..."
 pip3 install aiosmtpd >/dev/null 2>&1 || python3 -m pip install aiosmtpd --break-system-packages >/dev/null 2>&1
 
-# ── 5. 配置 Systemd 后台服务 ──────────────────────────────────────
-log "配置 Systemd 服务开机自启..."
-cat <<EOF > /etc/systemd/system/tg-mail.service
-[Unit]
-Description=Telegram Mail Forwarder SMTP Service
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=${SERVICE_DIR}
-ExecStart=/usr/bin/python3 ${SERVICE_DIR}/mail_server.py
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
+log "重启 Systemd 服务..."
 systemctl daemon-reload
-systemctl enable tg-mail >/dev/null 2>&1
 systemctl restart tg-mail
 
 sleep 2
 
-# ── 6. 状态检查与输出 ─────────────────────────────────────────────
 if systemctl is-active --quiet tg-mail; then
-    log "tg-mail 服务已成功运行！"
-    echo ""
-    echo "══════════════════════════════════════════════"
-    echo "  邮件 Telegram 转发服务部署成功"
-    echo "══════════════════════════════════════════════"
-    echo "  监听端口 : 25 (全网匿名接收)"
-    echo "  TG Chat  : ${TG_CHAT_ID}"
-    echo "  服务状态 : systemctl status tg-mail"
-    echo "  日志查看 : journalctl -u tg-mail -f"
-    echo "══════════════════════════════════════════════"
-    echo ""
+    log "服务修复并重启完成！"
 else
-    err "服务启动失败，请运行 [ journalctl -u tg-mail -e ] 查看错误日志"
+    err "服务启动失败，请检查日志。"
 fi
