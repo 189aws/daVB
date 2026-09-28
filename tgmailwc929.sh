@@ -2,7 +2,7 @@
 set -e
 
 # ========== 配置区 ==========
-TG_TOKEN="8847461870:AAE2_ZWvgkAltdHy8y4QxYhWVGDk85JVwZs"
+TG_TOKEN="8896559295:AAHWVHQVJfoWG9v4McFg2qJgACw0nEpMxJo"
 TG_CHAT_ID="1417748881"
 LISTEN_PORT=25                            # SMTP 监听端口
 SERVICE_DIR="/opt/tg_mail_forwarder"
@@ -18,16 +18,16 @@ log "检查并安装基础组件..."
 apt-get update -qq && apt-get install -y -qq python3 python3-pip psmisc curl >/dev/null 2>&1
 
 # ── 2. 彻底清理占用 25 端口的服务与残留进程 ─────────────────────────
-log "停止服务并强杀占用 25 端口的任何进程..."
+log "清理 25 端口占用服务..."
 systemctl stop tg-mail postfix exim4 sendmail 2>/dev/null || true
 systemctl disable postfix exim4 sendmail 2>/dev/null || true
 
-# 强制杀掉占用 25 端口的所有 PID
+# 强行杀掉占用 25 端口的所有 TCP 进程
 fuser -k -9 ${LISTEN_PORT}/tcp 2>/dev/null || true
-sleep 2
+sleep 1
 
-# ── 3. 创建部署目录并写入代码 ─────────────────────────────────────
-log "写入 Python 服务端代码 (包含 SO_REUSEPORT 防占用优化)..."
+# ── 3. 创建部署目录并写入 Python 代码 ─────────────────────────────
+log "配置 Python 邮件接收与 Telegram 转发服务..."
 mkdir -p ${SERVICE_DIR}
 
 cat <<'EOF' > ${SERVICE_DIR}/mail_server.py
@@ -44,7 +44,7 @@ TG_TOKEN = "TG_TOKEN_PLACEHOLDER"
 TG_CHAT_ID = "TG_CHAT_ID_PLACEHOLDER"
 
 def decode_str(s):
-    """解码邮件头中的编码文本"""
+    """解码邮件头中的编码文本 (如 Subject, From)"""
     if not s:
         return ""
     decoded_list = decode_header(s)
@@ -61,7 +61,7 @@ def decode_str(s):
     return "".join(result)
 
 def extract_body(msg):
-    """全兼容提取邮件正文"""
+    """全兼容提取邮件正文（兼容 multipart / html 独立结构）"""
     plain_text = ""
     html_text = ""
 
@@ -117,13 +117,14 @@ def extract_body(msg):
     return final_body
 
 def send_tg_message(sender, recipient, subject, body):
-    """格式化并推送给 Telegram Bot"""
+    """格式化并推送给 Telegram Bot (带安全转义)"""
     code_match = re.search(r'\b([A-Z0-9]{4,8})\b', body)
     code_str = f"\n🔑 <b>提取验证码：</b> <code>{code_match.group(1)}</code>\n" if code_match else ""
 
     if len(body) > 1500:
         body = body[:1500] + "... (后略)"
 
+    # HTML 字符转义，解决 TG 400 Bad Request 错误
     safe_sender = html.escape(sender)
     safe_recipient = html.escape(recipient)
     safe_subject = html.escape(subject)
@@ -176,7 +177,6 @@ class SMTPHandler:
 async def main():
     from aiosmtpd.controller import Controller
     handler = SMTPHandler()
-    # 增加 ready_timeout 参数保证监听端口绑定顺畅
     controller = Controller(handler, hostname='0.0.0.0', port=25, ready_timeout=10.0)
     controller.start()
     print("[✓] SMTP 邮件转发服务已在 0.0.0.0:25 启动成功...")
@@ -193,22 +193,54 @@ if __name__ == '__main__':
     asyncio.run(main())
 EOF
 
-# 替换配置参数
+# 动态替换 TG 配置参数
 sed -i "s/TG_TOKEN_PLACEHOLDER/${TG_TOKEN}/g" ${SERVICE_DIR}/mail_server.py
 sed -i "s/TG_CHAT_ID_PLACEHOLDER/${TG_CHAT_ID}/g" ${SERVICE_DIR}/mail_server.py
 
-# ── 4. 安装依赖并启动服务 ──────────────────────────────────────────
+# ── 4. 安装 Python 依赖包 ──────────────────────────────────────────
 log "安装 Python aiosmtpd 依赖..."
 pip3 install aiosmtpd >/dev/null 2>&1 || python3 -m pip install aiosmtpd --break-system-packages >/dev/null 2>&1
 
-log "重新加载并启动 Systemd 服务..."
+# ── 5. 配置 Systemd 服务文件 ───────────────────────────────────────
+log "创建 Systemd 服务配置文件..."
+cat <<EOF > /etc/systemd/system/tg-mail.service
+[Unit]
+Description=Telegram Mail Forwarder SMTP Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${SERVICE_DIR}
+ExecStart=/usr/bin/python3 ${SERVICE_DIR}/mail_server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# ── 6. 启动并配置自启 ──────────────────────────────────────────────
+log "启动服务并配置开机自启..."
 systemctl daemon-reload
+systemctl enable tg-mail >/dev/null 2>&1
 systemctl restart tg-mail
 
 sleep 2
 
+# ── 7. 运行结果验证 ────────────────────────────────────────────────
 if systemctl is-active --quiet tg-mail; then
-    log "tg-mail 服务已成功运行！端口 25 绑定正常。"
+    log "tg-mail 服务已成功运行！"
+    echo ""
+    echo "══════════════════════════════════════════════"
+    echo "  Telegram 邮件转发服务部署完成"
+    echo "══════════════════════════════════════════════"
+    echo "  监听端口 : 25 (SMTP 接收端口)"
+    echo "  TG Chat  : ${TG_CHAT_ID}"
+    echo "  服务状态 : systemctl status tg-mail"
+    echo "  实时日志 : journalctl -u tg-mail -f"
+    echo "══════════════════════════════════════════════"
+    echo ""
 else
-    err "服务启动失败，请运行 [ journalctl -u tg-mail -n 20 ] 查看日志"
+    err "服务启动失败，请运行 [ journalctl -u tg-mail -n 20 ] 查看详细故障日志"
 fi
