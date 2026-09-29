@@ -2,8 +2,8 @@
 set -e
 
 # ========== 配置区 ==========
-FEISHU_WEBHOOK="[https://open.feishu.cn/open-apis/bot/v2/hook/83914acb-f50e-4aed-8bfc-b71f7f19ed3f](https://open.feishu.cn/open-apis/bot/v2/hook/83914acb-f50e-4aed-8bfc-b71f7f19ed3f)"
-SNI_DOMAIN="[www.tesla.com](https://www.tesla.com)"
+FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/83914acb-f50e-4aed-8bfc-b71f7f19ed3f"
+SNI_DOMAIN="www.tesla.com"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
@@ -19,7 +19,7 @@ err()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
 # ── 0. 开启 BBR 与 Linux 内核 TCP 缓冲区深度调优 ───────────────────
 log "优化系统内核 TCP 参数与开启 BBR..."
-cat <<EOF> /etc/sysctl.d/99-shadowtls-speed.conf
+cat <<EOF > /etc/sysctl.d/99-shadowtls-speed.conf
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=67108864
@@ -131,4 +131,42 @@ SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS202
 
 # ── 9. 发送一键复制格式到飞书 ─────────────────────────────────────
 log "推送可一键复制的节点链接到飞书..."
-python3 - <<PYEND " "" "card": "content": "div", "elements": "interactive", "lark_md", "msg_type": "tag": "text": "══════════════════════════════════════════════" "部署完成，链接已推送到飞书！" # ### ${SS_LINK}" 'application/json'}) **“复制” --- 10. Exception Icon/图标**，或者长按/双击直接选择整段链接，彻底解决折行和复制不全的问题！ PYEND [ ] ``` as data="json.dumps(payload).encode('utf-8')," e: echo except f"```\n{link}\n```" headers="{'Content-Type':" import json link="${SS_LINK}" log payload="{" print("飞书一键复制卡片推送成功！") print(f"推送失败: req="urllib.request.Request(webhook," timeout="10)" try: urllib.request urllib.request.urlopen(req, webhook="${FEISHU_WEBHOOK}" { {e}") } ── ──────────────────────────────────────────── 一键链接:" 在飞书中收到消息后，链接会被包裹在一个灰色的**代码卡片**中。鼠标移上去，右上角会直接出现一个 推送效果 本地输出汇总>
+if [ -n "$FEISHU_WEBHOOK" ]; then
+    curl -s -X POST "$FEISHU_WEBHOOK" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"msg_type\": \"interactive\",
+            \"card\": {
+                \"elements\": [
+                    {
+                        \"tag\": \"div\",
+                        \"text\": {
+                            \"tag\": \"lark_md\",
+                            \"content\": \"\`\`\`\n${SS_LINK}\n\`\`\`\"
+                        }
+                    }
+                ]
+            }
+        }" >/dev/null && log "飞书一键复制卡片推送成功！"
+fi
+
+# ── 10. 本地输出汇总 ────────────────────────────────────────────
+echo ""
+echo "══════════════════════════════════════════════"
+echo "  部署完成汇总"
+echo "══════════════════════════════════════════════"
+echo "  服务器IP    : ${SERVER_IP}"
+echo "  监听端口    : ${LISTEN_PORT}"
+echo "  SS端口      : ${SS_PORT} (网络已直接内存打通)"
+echo "  加密算法    : 2022-blake3-aes-128-gcm"
+echo "  SS 密码     : ${SS_KEY}"
+echo "  TLS 密码    : ${TLS_PWD}"
+echo "  SNI 域名    : ${SNI_DOMAIN}"
+echo "══════════════════════════════════════════════"
+echo "  一键链接:"
+echo "  ${SS_LINK}"
+echo "══════════════════════════════════════════════"
+echo ""
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo ""
+log "性能调优完毕，节点链接已推送到飞书！"
