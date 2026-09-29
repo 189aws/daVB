@@ -129,54 +129,17 @@ print(b64)
 
 SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS2022_ShadowTLS_HighSpeed"
 
-# ── 9. 推送节点链接到飞书 ───────────────────────────────────────
-log "推送配置到飞书..."
+# ── 9. 推送纯节点链接到飞书 ─────────────────────────────────────
+log "推送节点链接到飞书..."
 if [ -n "$FEISHU_WEBHOOK" ]; then
-    python3 -c "
-import json, urllib.request, sys
-
-webhook = '${FEISHU_WEBHOOK}'
-ip = '${SERVER_IP}'
-port = '${LISTEN_PORT}'
-ss_key = '${SS_KEY}'
-tls_pwd = '${TLS_PWD}'
-sni = '${SNI_DOMAIN}'
-link = '${SS_LINK}'
-
-card = {
-    'msg_type': 'interactive',
-    'card': {
-        'header': {
-            'title': {'tag': 'plain_text', 'content': '🚀 Shadow-TLS 节点部署成功'},
-            'template': 'blue'
-        },
-        'elements': [
-            {
-                'tag': 'div',
-                'text': {
-                    'tag': 'lark_md',
-                    'content': f'**🌐 服务器 IP：** `{ip}`\n**🔌 监听端口：** `{port}`\n**🔐 加密算法：** `2022-blake3-aes-128-gcm`\n**🔑 SS 密码：** `{ss_key}`\n**🛡️ TLS 密码：** `{tls_pwd}`\n**🌐 SNI 域名：** `{sni}`'
-                }
-            },
-            {'tag': 'hr'},
-            {
-                'tag': 'div',
-                'text': {
-                    'tag': 'lark_md',
-                    'content': f'**🔗 一键节点链接：**\n```\n{link}\n```'
-                }
+    curl -s -X POST "$FEISHU_WEBHOOK" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"msg_type\": \"text\",
+            \"content\": {
+                \"text\": \"${SS_LINK}\"
             }
-        ]
-    }
-}
-
-try:
-    req = urllib.request.Request(webhook, data=json.dumps(card).encode('utf-8'), headers={'Content-Type': 'application/json'})
-    urllib.request.urlopen(req, timeout=10)
-    print('飞书推送成功！')
-except Exception as e:
-    print(f'飞书推送失败: {e}', file=sys.stderr)
-"
+        }" >/dev/null && echo "飞书推送成功！"
 fi
 
 # ── 10. 本地输出汇总 ────────────────────────────────────────────
@@ -198,4 +161,4 @@ echo "════════════════════════�
 echo ""
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
-log "速性能调优完毕，节点已推送！"
+log "性能调优完毕，节点链接已推送到飞书！"
