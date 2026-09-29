@@ -5,7 +5,6 @@ set -e
 FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/83914acb-f50e-4aed-8bfc-b71f7f19ed3f"
 SNI_DOMAIN="www.tesla.com"
 
-
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
 LISTEN_PORT=51994
@@ -20,7 +19,7 @@ err()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 
 # ── 0. 开启 BBR 与 Linux 内核 TCP 缓冲区深度调优 ───────────────────
 log "优化系统内核 TCP 参数与开启 BBR..."
-cat <<EOF> /etc/sysctl.d/99-shadowtls-speed.conf
+cat <<EOF > /etc/sysctl.d/99-shadowtls-speed.conf
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 net.core.rmem_max=67108864
@@ -128,10 +127,10 @@ b64 = base64.urlsafe_b64encode(json.dumps(obj, separators=(',',':')).encode()).d
 print(b64)
 ")
 
-SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS"
+SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS2022_ShadowTLS_HighSpeed"
 
-# ── 9. 推送带有“一键复制”按钮的飞书卡片 ─────────────────────────
-log "推送飞书一键复制卡片..."
+# ── 9. 推送纯链接高亮卡片到飞书 ─────────────────────────────────
+log "推送卡片到飞书..."
 python3 -c "
 import json, urllib.request
 
@@ -146,24 +145,8 @@ payload = {
                 'tag': 'div',
                 'text': {
                     'tag': 'lark_md',
-                    'content': f'\`{link}\`'
+                    'content': f'**👇 双击或长按下方背景区域即可全选复制：**\n\n\`{link}\`'
                 }
-            },
-            {
-                'tag': 'action',
-                'actions': [
-                    {
-                        'tag': 'button',
-                        'text': {
-                            'tag': 'plain_text',
-                            'content': '📋 点击复制节点链接'
-                        },
-                        'type': 'primary',
-                        'copy_data': {
-                            'text': link
-                        }
-                    }
-                ]
             }
         ]
     }
@@ -172,7 +155,7 @@ payload = {
 try:
     req = urllib.request.Request(webhook, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
     urllib.request.urlopen(req, timeout=10)
-    print('飞书一键复制卡片推送成功！')
+    print('飞书节点卡片推送成功！')
 except Exception as e:
     print(f'推送失败: {e}')
 "
@@ -196,4 +179,4 @@ echo "════════════════════════�
 echo ""
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
-log "性能调优完毕，一键复制卡片已推送到飞书！"
+log "部署完毕，节点卡片已发送至飞书！"
