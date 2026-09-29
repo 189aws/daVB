@@ -129,8 +129,8 @@ print(b64)
 
 SS_LINK="ss://${SS_B64}@${SERVER_IP}:${LISTEN_PORT}?shadow-tls=${STLS_B64}#SS2022_ShadowTLS_HighSpeed"
 
-# ── 9. 推送纯链接高亮卡片到飞书 ─────────────────────────────────
-log "推送卡片到飞书..."
+# ── 9. 推送干净纯文本节点到飞书 ─────────────────────────────────
+log "推送节点到飞书..."
 python3 -c "
 import json, urllib.request
 
@@ -138,24 +138,16 @@ webhook = '${FEISHU_WEBHOOK}'
 link = '''${SS_LINK}'''
 
 payload = {
-    'msg_type': 'interactive',
-    'card': {
-        'elements': [
-            {
-                'tag': 'div',
-                'text': {
-                    'tag': 'lark_md',
-                    'content': f'**👇 双击或长按下方背景区域即可全选复制：**\n\n\`{link}\`'
-                }
-            }
-        ]
+    'msg_type': 'text',
+    'content': {
+        'text': link
     }
 }
 
 try:
     req = urllib.request.Request(webhook, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
     urllib.request.urlopen(req, timeout=10)
-    print('飞书节点卡片推送成功！')
+    print('飞书节点推送成功！')
 except Exception as e:
     print(f'推送失败: {e}')
 "
@@ -179,4 +171,4 @@ echo "════════════════════════�
 echo ""
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
-log "部署完毕，节点卡片已发送至飞书！"
+log "部署完毕，节点已发送至飞书！"
