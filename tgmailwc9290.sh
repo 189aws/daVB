@@ -131,13 +131,11 @@ def send_tg_message(sender, recipient, subject, body):
     safe_body = html.escape(body)
 
     msg_text = (
-        f"📧 <b>收到新邮件！</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
         f"👤 <b>发件人：</b> <code>{safe_sender}</code>\n"
         f"📥 <b>收件人：</b> <code>{safe_recipient}</code>\n"
         f"📌 <b>主 题：</b> <b>{safe_subject}</b>\n"
         f"{code_str}"
-        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"━━━\n"
         f"📝 <b>正文内容：</b>\n"
         f"<pre>{safe_body}</pre>"
     )
