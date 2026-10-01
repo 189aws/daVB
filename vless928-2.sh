@@ -99,9 +99,7 @@ datadoghq.com
 debian.org
 dl-cdn.alpinelinux.org
 docker.com
-docs.microsoft.com
 dot.net
-dotnet.microsoft.com
 download.docker.com
 download.jetbrains.com
 duke.edu
@@ -140,10 +138,8 @@ nature.com
 npmjs.com
 office.com
 office365.com
-onedrive.live.com
 onlinelibrary.wiley.com
 oracle.com
-outlook.live.com
 outlook.office.com
 packages.debian.org
 paypal.com
