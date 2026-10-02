@@ -4,11 +4,11 @@ set -e
 # ========== 配置区 ==========
 TG_TOKEN="8896559295:AAHWVHQVJfoWG9v4McFg2qJgACw0nEpMxJo"
 TG_CHAT_ID="1417748881"
-SNI_DOMAIN="www.visa.co.jp"
+SNI_DOMAIN="www.harvard.edu"
 
 # 自动随机生成参数
 SS_PORT=$(shuf -i 30000-45000 -n 1)        # 内部 SS 随机监听端口
-LISTEN_PORT=50999
+LISTEN_PORT=50222
 TLS_PWD=$(openssl rand -hex 16)            # 随机 32 位 Shadow-TLS 密码
 SS_KEY=$(openssl rand -base64 16)          # 精确生成 16 字节 Base64 密钥
 # ============================
