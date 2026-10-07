@@ -1,0 +1,399 @@
+#!/usr/bin/env bash
+
+# ===============================================================
+# Sing-box Docker 版 VLESS-Reality 部署与 TG 推送脚本 (随机端口版)
+# ===============================================================
+
+set -e
+
+# ========== TG 配置区 ==========
+TG_TOKEN="8896559295:AAHWVHQVJfoWG9v4McFg2qJgACw0nEpMxJo"
+TG_CHAT_ID="1417748881"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+PLAIN='\033[0m'
+
+log() {
+    echo -e "${GREEN}[INFO] $1${PLAIN}"
+}
+
+warn() {
+    echo -e "${YELLOW}[WARN] $1${PLAIN}"
+}
+
+err() {
+    echo -e "${RED}[ERROR] $1${PLAIN}"
+}
+
+if [[ $EUID -ne 0 ]]; then
+   err "错误：请使用 root 权限运行此脚本！"
+   exit 1
+fi
+
+echo -e "${GREEN}=== 开始部署 Sing-box Docker VLESS-Reality 服务 ===${PLAIN}"
+
+# 1. 检查并安装 Docker 环境（自动修复包名/源问题）
+log "1. 检查并配置 Docker 环境..."
+
+if ! command -v docker &>/dev/null; then
+    log "检测到未安装 Docker，开始自动安装 Docker 官方源..."
+    if command -v apt &>/dev/null; then
+        apt update -y && apt install -y ca-certificates curl gnupg
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg || true
+        chmod a+r /etc/apt/keyrings/docker.gpg || true
+        
+        # 写入 Docker 官方 APT 源
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+        
+        apt update -y
+        apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin jq openssl
+    elif command -v yum &>/dev/null; then
+        yum install -y curl jq openssl yum-utils
+        yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    fi
+else
+    log "Docker 已安装，安装辅助工具 (jq, openssl)..."
+    if command -v apt &>/dev/null; then
+        apt update -y && apt install -y jq openssl curl
+    elif command -v yum &>/dev/null; then
+        yum install -y jq openssl curl
+    fi
+fi
+
+systemctl enable docker --now &>/dev/null || true
+
+# 2. 从内置域名池中并发筛选可用域名
+log "2. 正在并发测试并筛选可用 SNI 域名..."
+
+TMP_POOL=$(mktemp)
+cat << 'EOF' > "$TMP_POOL"
+es-firstamerican.splunkcloud.com
+tylieapi.tandem.tylie.com
+communityfirst.splunkcloud.com
+skytap.splunkcloud.com
+conscheduling.tst.tekion.xyz
+rest2.staging-cloud-support.purestorage.com
+pl-qa.nmp.nonprod-sinclairstoryline.com
+ndu.purestorage.com
+cisco-cisco-fmc-refactor-test-7--tdmyie.app.staging.cdo.cisco.com
+app.tekion.xyz
+photoshop.com
+restricted-rest.staging-cloud-support.purestorage.com
+shaked.soar.splunkcloud.com
+cdo-cisco-tyrost.app.us.cdo.cisco.com
+api.tekion.xyz
+cisco-fy25roadshow-ntt-ab--tbty74.app.us.cdo.cisco.com
+gql-opportunities-api-us-west-2.alpha.bgov.com
+http-inputs-firehose-edu99110-13.splunkcloud.com
+consumer-portal.tst.tekion.xyz
+rw-qa.nmp.nonprod-sinclairstoryline.com
+cisco-te-hmflab-org-129--t70qfa.app.us.cdo.cisco.com
+edu99110-13.splunkcloud.com
+http-inputs-firehose-firstamerican.splunkcloud.com
+slack.com
+http-inputs-bcbsasecurity.splunkcloud.com
+http-inputs-skytap.splunkcloud.com
+tjdiversified.app.us.cdo.cisco.com
+onemaingenerations-wfm.nicecloudsvc.com
+keylounge.tst.tekion.xyz
+onboarding.tst.tekion.xyz
+apirest.c-3.us-west-2.aws.neon.tech
+es.bas-e2e.a.intuit.com
+http-inputs-ack-edu99110-13.splunkcloud.com
+pha.iis-s-uw2.cloudos.autodesk.com
+http-inputs-ack-firstamerican.splunkcloud.com
+redshift-fips.us-gov-west-1.api.aws
+rest.pdc-1.staging-cloud-support.purestorage.com
+transfer.ws.sd1.banco.srv.nintendo.net
+oidc.preview.aidefense.aiteam.cisco.com
+http-inputs-communityfirst.splunkcloud.com
+cdo-fw-hcm--sfb77s.app.us.cdo.cisco.com
+http-inputs-firehose-bcbsasecurity.splunkcloud.com
+us-west-2.brat-api.admin.bridge.dangerzone.coxautoservices.com
+bcbsasecurity.splunkcloud.com
+http-inputs-firstamerican.splunkcloud.com
+ndanalytics.splunkcloud.com
+onemainfinancial-wfm.nicecloudsvc.com
+http-inputs-ndanalytics.splunkcloud.com
+synthetics-fips.us-west-2.api.aws
+brat-api-cdn.admin.bridge.dangerzone.coxautoservices.com
+http-inputs-ack-bcbsasecurity.splunkcloud.com
+service-media.tst.tekion.xyz
+apiauth.c-4.us-west-2.aws.neon.tech
+rest.staging-cloud-support.purestorage.com
+es-bcbsasecurity.splunkcloud.comwww.serenzasalon.com
+aa.preprod.au.c2x.isscms.com
+cdo-cisco-cisco--s96dl5.app.us.cdo.cisco.com
+p4e3w6.usa-w2.cloudhub.io
+ksg.keysight.com
+argelog.com.tr
+mobile-asmt.mars.trendmicro.com
+wwph-prod-bup.vpn.workwave.com
+apgd.lockly.com
+serenzasalon.com
+krafton.ai
+api.hamatirutyun.am
+dss.fosterfarms.com
+api.staging.situ8.ai
+example.com
+org.convertusprod.com
+wgu.edu
+ceesc.com.br
+portal.myagentgenie.com
+com.convertusprod.com
+api.uraniumbaseball.com
+tenanttech.com
+net.convertusprod.com
+www.fysbdms.acf.hhs.gov
+intuitive.com
+fysbdms.acf.hhs.gov
+ddsqa.ddswireless.net
+alltools.3cx.us
+esquemas.digital.gob.cl
+tracking.ethos111-prod-or2.ethos.adobe.net
+staging.apex.quindarspace.com
+www.notion.so
+googleroutes.travomint.com
+www.a1activecare.com
+notion.so
+ca.convertusprod.com
+staging.fysbdms.acf.hhs.gov
+moz.com
+vpn-west.payments.workwave.com
+api.demo.alle.com
+eonhealth.com
+travtech.com
+demo.alle.com
+clicktripz.com
+scim.us10.integration.wiz.io
+fastbacknetworks.com
+matrix.preview.workato.com
+askmiso.com
+astra.datastax.com
+selfcheckout.tst.tekion.xyz
+my-prtg.com
+us-shard-u.filevineapp.com
+service.ocrenger.jp
+qa.claims-mfe.deliverysolutions.co
+agilent.com
+interac.payper.ca
+payper.ca
+frwdmauiapi.comwww.cohenconsumerlaw.com
+www.reciprocity.org
+admin.staging.situ8.ai
+cloud.igneous.iowww.zenwork.com
+sterlingts.com
+staging.vindexa.ai
+vpn.dev.spartan-dev.io
+mars.trendmicro.com
+mltools.arduino.cc
+dev-byungkyu.session.maton.ai
+nomades.com
+www.shangrila-intellidoc.org
+rejoynus-preview.redsnapper.net
+supabase.co
+edgeimpulse.com
+rau.rayoga.com
+demo.oz.spotlightar.com
+k3s-college-adaptor.ci.ccctechcenter.org
+backend-api.pjs.wci-registry.org
+seneca.tools
+qzviz1.usa-w1.cloudhub.io
+nccrmt.ca
+www.nccrmt.ca
+api.pernod-ricard.io
+integration-odigo.com
+origin-nlb-hdla.qa.connectedtech.io
+concentricai.com
+portal-api.myagentgenie.com
+dssmith.com
+clyk.studio
+studiothink.3cx.ca
+edupoint.com
+web-ryce.rayoga.com
+ext.junglescout.com
+centaursoftware.com
+staging.situ8.ai
+efuneral.com
+xylemsprout.com
+cohenconsumerlaw.com
+test.restoresjr.net
+toolboxbyadmiral.com
+trax.aero
+qa.factfinderspro.com
+software.blaize.com
+cascadeloans.com
+supabase.in
+communitywfm.com
+creditlens.moodysanalytics.com
+textfree.com
+careabout.com.au
+EOF
+
+check_domain() {
+    local domain=$1
+    if timeout 2 bash -c "echo | openssl s_client -connect '${domain}:443' -servername '${domain}' -tls1_3 -brief 2>&1" | grep -iq "established"; then
+        echo "$domain"
+    fi
+}
+export -f check_domain
+
+VALID_DOMAINS=()
+while IFS= read -r domain; do
+    [ -n "$domain" ] && VALID_DOMAINS+=("$domain")
+done < <(xargs -P 10 -I {} bash -c 'check_domain "$@"' _ {} < "$TMP_POOL")
+
+rm -f "$TMP_POOL"
+
+if [ ${#VALID_DOMAINS[@]} -eq 0 ]; then
+    warn "探测未匹配到响应成功的域名，回退默认伪装域名: debian.org"
+    DEST_DOMAIN="debian.org"
+else
+    RANDOM_INDEX=$((RANDOM % ${#VALID_DOMAINS[@]}))
+    DEST_DOMAIN="${VALID_DOMAINS[$RANDOM_INDEX]}"
+    log "挑选伪装域名: ${CYAN}${DEST_DOMAIN}${PLAIN}"
+fi
+
+# 3. 提取容器生成 KeyPair 与 UUID
+log "3. 生成 VLESS Reality 密钥对与参数..."
+
+KEY_OUTPUT=$(docker run --rm ghcr.io/sagernet/sing-box:latest generate reality-keypair)
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | awk '/PrivateKey:/ {print $2}')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | awk '/PublicKey:/ {print $2}')
+
+UUID=$(docker run --rm ghcr.io/sagernet/sing-box:latest generate uuid)
+SHORT_ID=$(openssl rand -hex 8)
+
+# 生成 10000 - 65000 之间未占用的随机端口
+get_random_port() {
+    local port
+    while true; do
+        port=$((10000 + RANDOM % 55000))
+        if ! ss -tuln | grep -q ":${port} "; then
+            echo "$port"
+            break
+        fi
+    done
+}
+
+PORT=$(get_random_port)
+log "生成的随机端口为: ${CYAN}${PORT}${PLAIN}"
+
+# 4. 生成配置文件与启动 Docker 容器
+log "4. 写入 Sing-box 配置文件..."
+
+CONFIG_DIR="/etc/sing-box"
+mkdir -p "${CONFIG_DIR}"
+
+cat <<EOF > "${CONFIG_DIR}/config.json"
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-in",
+      "listen": "::",
+      "listen_port": ${PORT},
+      "users": [
+        {
+          "uuid": "${UUID}",
+          "flow": "xtls-rprx-vision"
+        }
+      ],
+      "tls": {
+        "enabled": true,
+        "server_name": "${DEST_DOMAIN}",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "${DEST_DOMAIN}",
+            "server_port": 443
+          },
+          "private_key": "${PRIVATE_KEY}",
+          "short_id": [
+            "${SHORT_ID}"
+          ]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ]
+}
+EOF
+
+# 清理已有容器并重新启动
+docker rm -f sing-box &>/dev/null || true
+
+log "启动 Sing-box Docker 容器..."
+docker run -d \
+  --name sing-box \
+  --restart=always \
+  --network=host \
+  -v "${CONFIG_DIR}/config.json:/etc/sing-box/config.json" \
+  ghcr.io/sagernet/sing-box:latest \
+  run -c /etc/sing-box/config.json
+
+# 5. 构建节点信息
+SERVER_IP=$(curl -s4 --connect-timeout 5 ifconfig.me || curl -s4 --connect-timeout 5 ip.sb || echo "127.0.0.1")
+VLESS_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?type=tcp&security=reality&encryption=none&pbk=${PUBLIC_KEY}&fp=chrome&sni=${DEST_DOMAIN}&sid=${SHORT_ID}&flow=xtls-rprx-vision#SingBox-Reality-${DEST_DOMAIN}"
+
+# 6. 修复并推送节点链接到 Telegram
+log "推送配置到 Telegram..."
+if [ -n "$TG_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+    TG_TEXT="<b>Sing-box VLESS-Reality 节点部署成功</b>
+
+<b>服务器 IP:</b> <code>${SERVER_IP}</code>
+<b>监听端口:</b> <code>${PORT}</code>
+<b>伪装域名:</b> <code>${DEST_DOMAIN}</code>
+
+<b>节点链接:</b>
+<code>${VLESS_LINK}</code>"
+
+    # 使用 4 强制使用 IPv4，--data-urlencode 避免传输编码解析异常，输出完整 API 异常
+    RESPONSE=$(curl -s4 --connect-timeout 10 -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+        -d "chat_id=${TG_CHAT_ID}" \
+        -d "parse_mode=HTML" \
+        --data-urlencode "text=${TG_TEXT}")
+
+    if echo "$RESPONSE" | grep -q '"ok":true'; then
+        log "Telegram 推送成功！"
+    else
+        warn "Telegram 推送失败，返回接口结果如下："
+        echo -e "${RED}${RESPONSE}${PLAIN}"
+    fi
+fi
+
+# 7. 控制台结果展示
+echo -e "\n${GREEN}====================================================${PLAIN}"
+echo -e "${GREEN}    Sing-box Docker VLESS-Reality 部署完成！        ${PLAIN}"
+echo -e "${GREEN}====================================================${PLAIN}"
+echo -e "服务器 IP    : ${YELLOW}${SERVER_IP}${PLAIN}"
+echo -e "监听端口     : ${YELLOW}${PORT}${PLAIN}"
+echo -e "UUID         : ${YELLOW}${UUID}${PLAIN}"
+echo -e "Public Key   : ${YELLOW}${PUBLIC_KEY}${PLAIN}"
+echo -e "Short ID     : ${YELLOW}${SHORT_ID}${PLAIN}"
+echo -e "SNI 伪装域名 : ${CYAN}${DEST_DOMAIN}${PLAIN}"
+echo -e "----------------------------------------------------"
+echo -e "客户端分享链接:"
+echo -e "${GREEN}${VLESS_LINK}${PLAIN}"
+echo -e "----------------------------------------------------"
+echo -e "配置文件路径: ${CONFIG_DIR}/config.json"
+echo -e "查看日志: ${YELLOW}docker logs -f sing-box${PLAIN}"
+echo -e "${GREEN}====================================================${PLAIN}"
