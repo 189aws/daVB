@@ -4,31 +4,27 @@ set -e
 # 确保以 root 权限运行
 [ "$EUID" -ne 0 ] && { echo "请使用 root 权限运行此脚本 (sudo bash)"; exit 1; }
 
-echo "=== 1. 检查并安装 Docker 及必要依赖 ==="
-if ! command -v docker &> /dev/null; then
-    echo "正在安装 Docker 及其运行时..."
-    apt-get update -y
-    apt-get install -y ca-certificates curl gnupg lsb-release
-    
-    # 添加 Docker 官方 GPG 密钥和软件源
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-      $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-      
-    apt-get update -y
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-    systemctl enable --now docker
-    echo "Docker 安装完成！"
-else
-    echo "Docker 已经安装，跳过安装步骤。"
-fi
+echo "=== 1. 清理错误的软件源并安装 Docker 依赖 ==="
+rm -f /etc/apt/sources.list.d/docker.list
+apt-get update -y
+apt-get install -y ca-certificates curl gnupg lsb-release
 
-echo "=== 2. 清理旧容器并创建安全网络 ==="
+# 添加 Docker 官方 GPG 密钥和正确的 Debian (bookworm) 软件源
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+  bookworm stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+echo "=== 2. 安装 Docker 及运行时 ==="
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+systemctl enable --now docker
+
+echo "=== 3. 清理旧容器并创建安全网络 ==="
 docker rm -f socks5-proxy 2>/dev/null || true
 
-# 随机选择安全的内网网段类型 (严格排除 AWS 冲突的 169.254 和 100.64)
+# 随机选择安全的内网网段类型 (排除冲突的 169.254 和 100.64)
 SEGMENT=$((RANDOM % 3))
 case $SEGMENT in
   0)
@@ -58,7 +54,7 @@ NETWORK_NAME="gost-net-$SUBNET1-$SUBNET2"
 docker network rm $NETWORK_NAME 2>/dev/null || true
 docker network create --driver bridge --subnet "$SUBNET" --gateway "$GATEWAY" "$NETWORK_NAME"
 
-echo "=== 3. 启动 Gost SOCKS5 代理容器 ==="
+echo "=== 4. 启动 Gost SOCKS5 代理容器 ==="
 docker run -d --restart=always \
   --name socks5-proxy \
   -p 12333:12333 \
@@ -69,7 +65,7 @@ docker run -d --restart=always \
 
 echo "Container started with IP: $IP, Gateway: $GATEWAY, Network: $SUBNET"
 
-echo "=== 4. 安装网络管理工具并应用 ultra fingerprint 混淆 ==="
+echo "=== 5. 应用 ultra fingerprint 混淆配置 ==="
 apt-get install -y iproute2 iptables
 
 HOST=$(hostname)
