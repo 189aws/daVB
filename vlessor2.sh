@@ -636,7 +636,7 @@ SERVER_IP=$(curl -s4 --connect-timeout 5 ifconfig.me || curl -s4 --connect-timeo
 # 生成 5 位随机大小写字母 + 数字的字符串
 RANDOM_TAG=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 5)
 
-VLESS_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?type=tcp&security=reality&encryption=none&pbk=${PUBLIC_KEY}&fp=chrome&sni=${DEST_DOMAIN}&sid=${SHORT_ID}&flow=xtls-rprx-vision#${RANDOM_TAG}-${DEST_DOMAIN}"
+VLESS_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?type=tcp&security=reality&encryption=none&pbk=${PUBLIC_KEY}&fp=safari&sni=${DEST_DOMAIN}&sid=${SHORT_ID}&flow=xtls-rprx-vision#${RANDOM_TAG}-${DEST_DOMAIN}"
 
 # 6. 修复并推送节点链接到 Telegram
 log "推送配置到 Telegram..."
