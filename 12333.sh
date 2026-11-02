@@ -60,7 +60,7 @@ docker run -d --restart=always \
   --network $NETWORK_NAME \
   --ip $IP \
   ginuerzh/gost \
-  -L "socks5://:12333?udp=true&dns=https://dns.google/dns-query"
+  -L "socks5://:12333?udp=true&dns=https://1.1.1.2/dns-query"
 
 echo "Container started with IP: $IP, Gateway: $GATEWAY, Network: $SUBNET"
 
