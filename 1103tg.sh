@@ -195,14 +195,88 @@ def tg_call(token, method, payload=None, files=None):
         return json.load(r)
 
 
+INVISIBLE = re.compile("[\u200b\u200c\u200d\u2060\ufeff\u034f\u00ad]")
+
+
 def html_to_text(s):
-    s = re.sub(r"(?is)<(script|style|head).*?</\1>", "", s)
-    s = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</tr>|</li>|</h[1-6]>", "\n", s)
+    s = re.sub(r"(?s)<!--.*?-->", "", s)
+    s = re.sub(r"(?is)<(script|style|title)\b[^>]*>.*?</\1\s*>", "", s)
+    s = re.sub(r"(?is)<head\b[^>]*>.*?</head\s*>", "", s)
+
+    def _link(m):  # 保留链接：「文字 (URL)」，重置密码/验证邮件的关键内容
+        href = html.unescape(m.group(1)).strip()
+        label = html.unescape(re.sub(r"(?s)<[^>]+>", "", m.group(2))).strip()
+        if href.lower().startswith(("http://", "https://")):
+            return "%s (%s)" % (label, href) if label and label != href else href
+        return label
+
+    s = re.sub(r"(?is)<a\b[^>]*?href\s*=\s*[\"']([^\"']*)[\"'][^>]*>(.*?)</a\s*>", _link, s)
+    s = re.sub(r"(?i)<br\s*/?>|</(p|div|tr|li|h[1-6]|table)\s*>", "\n", s)
+    s = re.sub(r"(?i)</t[dh]\s*>", " ", s)
     s = re.sub(r"(?s)<[^>]+>", "", s)
-    s = html.unescape(s)
+    s = html.unescape(s).replace("\xa0", " ")
+    s = INVISIBLE.sub("", s)
     s = re.sub(r"[ \t\r\f\v]+", " ", s)
-    s = re.sub(r"\n\s*\n+", "\n\n", s)
+    s = re.sub(r"\n +", "\n", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
     return s.strip()
+
+
+def part_text(part):
+    try:
+        return part.get_content()
+    except Exception:
+        pass
+    try:
+        payload = part.get_payload(decode=True) or b""
+        cs = part.get_content_charset() or "utf-8"
+        try:
+            return payload.decode(cs, "replace")
+        except LookupError:
+            return payload.decode("utf-8", "replace")
+    except Exception:
+        return ""
+
+
+def extract_body(msg):
+    """遍历所有 MIME 部分，收集 text/plain 与 text/html，优先用有内容的纯文本，否则用 HTML 转文字。"""
+    plains, htmls = [], []
+    for part in msg.walk():
+        if part.is_multipart():
+            continue
+        if part.get_content_disposition() == "attachment" and part.get_filename():
+            continue  # 真正的附件，不当正文
+        ctype = part.get_content_type()
+        if ctype == "text/plain":
+            t = part_text(part).strip()
+            if t:
+                plains.append(t)
+        elif ctype == "text/html":
+            t = html_to_text(part_text(part))
+            if t:
+                htmls.append(t)
+    plain = "\n\n".join(plains)
+    htm = "\n\n".join(htmls)
+    if plain and (len(plain) >= 30 or not htm):
+        return plain
+    if htm:
+        return htm
+    if plain:
+        return plain
+    if not msg.is_multipart():  # 单部分且非 text/* 的情况，尽力解码
+        try:
+            payload = msg.get_payload(decode=True) or b""
+            return payload.decode(msg.get_content_charset() or "utf-8", "replace").strip()
+        except Exception:
+            pass
+    return ""
+
+
+def structure(msg):
+    try:
+        return ", ".join(p.get_content_type() for p in msg.walk())
+    except Exception:
+        return "unknown"
 
 
 def hdr(msg, name):
@@ -281,16 +355,18 @@ def main():
     sender = hdr(msg, "from") or env_sender or "(未知)"
     date = hdr(msg, "date")
 
-    text = ""
     try:
-        part = msg.get_body(preferencelist=("plain", "html"))
-        if part is not None:
-            text = part.get_content()
-            if part.get_content_type() == "text/html":
-                text = html_to_text(text)
+        text = extract_body(msg)
     except Exception as e:
-        text = "(正文解析失败: %s)" % e
+        log("正文解析异常: %s" % e)
+        text = ""
     text = re.sub(r"\n{3,}", "\n\n", text.strip())
+
+    force_eml = False
+    if not text:  # 实在解析不出正文：提示结构，并强制附上原始 .eml 供排查
+        force_eml = True
+        text = "(未能解析出正文，已附上原始邮件 .eml)\n邮件结构: " + structure(msg)
+        log("正文为空 rcpt=%s structure=%s" % (env_rcpt, structure(msg)))
 
     atts = []
     try:
@@ -306,7 +382,7 @@ def main():
         try:
             send_message(token, cid, args)
             ok_cnt += 1
-            if send_eml and len(raw) <= MAX_EML:
+            if (send_eml or force_eml) and len(raw) <= MAX_EML:
                 try:
                     fname = "mail-%s.eml" % time.strftime("%Y%m%d-%H%M%S")
                     tg_call(token, "sendDocument",
@@ -499,7 +575,8 @@ do_uninstall() {
 
 case "${1:-install}" in
   install)    do_install ;;
+  update-handler) need_root; install_handler; ok "转发程序已更新，下一封邮件即生效" ;;
   test)       do_test ;;
   uninstall)  do_uninstall ;;
-  *) echo "用法: $0 [install|test|uninstall]"; exit 1 ;;
+  *) echo "用法: $0 [install|update-handler|test|uninstall]"; exit 1 ;;
 esac
