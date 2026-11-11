@@ -72,7 +72,6 @@ log "2. 正在并发测试并筛选可用 SNI 域名..."
 
 TMP_POOL=$(mktemp)
 cat << 'EOF' > "$TMP_POOL"
-tr.mcafee.com
 n8n.vyuboards.com
 fantasy.espn.com
 vpn.index.nyshex.com
