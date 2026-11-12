@@ -69,7 +69,6 @@ n8n.vyuboards.com
 fantasy.espn.com
 vpn.index.nyshex.com
 powerreviews.com
-ru.mcafee.com
 www.itknowledgestore.com
 vas.comwww.example.com
 supio.com
