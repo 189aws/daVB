@@ -642,7 +642,7 @@ SERVER_IP=$(curl -s4 --connect-timeout 5 ifconfig.me || curl -s4 --connect-timeo
 
 # 生成 5 位随机大小写字母 + 数字的字符串，并拼接 _jp 后缀作为节点名
 RANDOM_TAG=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 5)
-NODE_NAME="${RANDOM_TAG}-${DEST_DOMAIN}_jp"
+NODE_NAME="${RANDOM_TAG}-${DEST_DOMAIN}_us"
 
 # 构造 Egern JSON 结构并进行 URL 编码
 EGERN_JSON="{\"vless\":{\"flow\":\"xtls-rprx-vision\",\"name\":\"${NODE_NAME}\",\"port\":${PORT},\"server\":\"${SERVER_IP}\",\"tfo\":false,\"transport\":{\"tls\":{\"reality\":{\"public_key\":\"${PUBLIC_KEY}\",\"short_id\":\"${SHORT_ID}\"},\"skip_tls_verify\":false,\"sni\":\"${DEST_DOMAIN}\"}},\"udp_relay\":true,\"user_id\":\"${UUID}\"}}"
