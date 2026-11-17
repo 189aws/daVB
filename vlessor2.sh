@@ -550,17 +550,18 @@ SHORT_ID=$(openssl rand -hex 8)
 
 # 生成 10000 - 65000 之间未占用的随机端口
 get_random_port() {
-    local port
-    while true; do
-        port=$((10000 + RANDOM % 55000))
-        if ! ss -tuln | grep -q ":${port} "; then
-            echo "$port"
-            break
-        fi
-    done
-}
+ #   local port
+  #  while true; do
+   #     port=$((10000 + RANDOM % 55000))
+   #     if ! ss -tuln | grep -q ":${port} "; then
+   #         echo "$port"
+   #         break
+   #     fi
+  #  done
+#}
 
-PORT=$(get_random_port)
+PORT=443
+#PORT=$(get_random_port)
 log "生成的随机端口为: ${CYAN}${PORT}${PLAIN}"
 
 # 4. 生成配置文件与启动 Docker 容器
