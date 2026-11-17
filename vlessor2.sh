@@ -560,8 +560,7 @@ get_random_port() {
    done
 }
 
-PORT=8443
-#PORT=$(get_random_port)
+PORT=$(get_random_port)
 log "生成的随机端口为: ${CYAN}${PORT}${PLAIN}"
 
 # 4. 生成配置文件与启动 Docker 容器
