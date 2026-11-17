@@ -564,7 +564,9 @@ get_random_port() {
     done
 }
 
-PORT=$(get_random_port)
+#这是原始随机的端口 PORT=$(get_random_port)
+PORT=443
+
 log "生成的随机端口为: ${CYAN}${PORT}${PLAIN}"
 
 # ---------------------------------------------------------------
