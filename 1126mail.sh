@@ -30,10 +30,10 @@ TG_BOT_TOKEN="${TG_BOT_TOKEN:-}"
 TG_CHAT_ID="${TG_CHAT_ID:-}"
 
 R=$'\e[31m'; G=$'\e[32m'; Y=$'\e[33m'; B=$'\e[34m'; N=$'\e[0m'
-info() { echo "${B}[INFO]${N}$*"; }
-ok()   { echo "${G}[ OK ]${N}$*"; }
-warn() { echo "${Y}[WARN]${N}$*"; }
-die()  { echo "${R}[FAIL]${N}$*" >&2; exit 1; }
+info() { echo "${B}[INFO]${N} $*"; }
+ok()   { echo "${G}[ OK ]${N} $*"; }
+warn() { echo "${Y}[WARN]${N} $*"; }
+die()  { echo "${R}[FAIL]${N} $*" >&2; exit 1; }
 
 trap 'die "脚本在第 $LINENO 行出错退出"' ERR
 
@@ -52,7 +52,7 @@ ask() { # ask VAR "提示"
   local var=$1 prompt=$2 val=""
   [[ -n "${!var:-}" ]] && return 0
   read -r -p "$prompt" val </dev/tty || true
-  printf -v "$var" '\%s' "$val"
+  printf -v "$var" '%s' "$val"
 }
 
 valid_domain() {
@@ -120,7 +120,7 @@ collect_input() {
 get_fqdn() {
   local h
   h=$(hostname -f 2>/dev/null || hostname)
-  [[ "$h" == *.* ]] \vert{}\vert{} h="${h}.localdomain"
+  [[ "$h" == *.* ]] || h="${h}.localdomain"
   echo "$h"
 }
 
@@ -136,7 +136,7 @@ install_postfix() {
 
 install_handler() {
   info "部署 Telegram 转发程序..."
-  id "$SVC_USER" &>/dev/null \vert{}\vert{} useradd --system --no-create-home --shell /usr/sbin/nologin "$SVC_USER"
+  id "$SVC_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$SVC_USER"
   mkdir -p "$INSTALL_DIR" "$CONF_DIR"
 
   cat > "$HANDLER" <<'PYEOF'
@@ -355,4 +355,247 @@ def main():
     msg = message_from_bytes(raw, policy=policy.default)
     subject = hdr(msg, "subject") or "(无主题)"
     sender = hdr(msg, "from") or env_sender or "(未知)"
-    date = hdr(msg, "date
+    date = hdr(msg, "date")
+
+    try:
+        text = extract_body(msg)
+    except Exception as e:
+        log("正文解析异常: %s" % e)
+        text = ""
+    text = re.sub(r"\n{3,}", "\n\n", text.strip())
+
+    force_eml = False
+    if not text:  # 实在解析不出正文：提示结构，并强制附上原始 .eml 供排查
+        force_eml = True
+        text = "(未能解析出正文，已附上原始邮件 .eml)\n邮件结构: " + structure(msg)
+        log("正文为空 rcpt=%s structure=%s" % (env_rcpt, structure(msg)))
+
+    atts = []
+    try:
+        for p in msg.iter_attachments():
+            atts.append(str(p.get_filename() or p.get_content_type()))
+    except Exception:
+        pass
+
+    args = (env_rcpt, sender, subject, date, atts, text)
+    ok_cnt = 0
+    for cid in chats:
+        cid = cid.strip()
+        try:
+            send_message(token, cid, args)
+            ok_cnt += 1
+            if (send_eml or force_eml) and len(raw) <= MAX_EML:
+                try:
+                    fname = "mail-%s.eml" % time.strftime("%Y%m%d-%H%M%S")
+                    tg_call(token, "sendDocument",
+                            {"chat_id": cid, "caption": subject[:200]},
+                            files={"document": (fname, raw, "message/rfc822")})
+                except Exception as e:
+                    log("发送 eml 失败 chat=%s: %s" % (cid, e))
+        except Exception as e:
+            log("推送失败 chat=%s rcpt=%s: %s" % (cid, env_rcpt, e))
+
+    if ok_cnt:
+        log("已推送 rcpt=%s from=%s subject=%s" % (env_rcpt, env_sender, subject[:60]))
+        return 0
+    return EX_TEMPFAIL
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+PYEOF
+
+  chown root:root "$INSTALL_DIR" "$HANDLER"
+  chmod 755 "$INSTALL_DIR" "$HANDLER"
+  ok "转发程序已部署: $HANDLER"
+}
+
+write_config() {
+  cat > "$CONF_FILE" <<EOF
+# tg-mail 配置 (修改后无需重启，下一封邮件即生效)
+TG_BOT_TOKEN=$TG_BOT_TOKEN
+# 多个 Chat ID 用英文逗号分隔
+TG_CHAT_ID=$TG_CHAT_ID
+# 设为 1 则同时把原始 .eml 文件(含附件)发到 Telegram
+SEND_EML=0
+EOF
+  chown root:"$SVC_USER" "$CONF_FILE"
+  chmod 640 "$CONF_FILE"
+  ok "配置已写入 $CONF_FILE"
+}
+
+configure_postfix() {
+  info "配置 Postfix..."
+  local first; first=$(get_fqdn)
+  [[ -f /etc/postfix/main.cf.orig-tgmail ]] || cp /etc/postfix/main.cf /etc/postfix/main.cf.orig-tgmail
+  [[ -f /etc/postfix/master.cf.orig-tgmail ]] || cp /etc/postfix/master.cf /etc/postfix/master.cf.orig-tgmail
+
+  # 接受「任意域名」+「任意收件人」(catch-all)，不做域名校验
+  echo '/.*/ OK' > "$DOMAINS_FILE"
+  echo '/^[^@]+@[^@]+$/ OK' > "$RCPT_FILE"
+
+  postconf -e \
+    "myhostname = $first" \
+    "mydestination = localhost" \
+    "mynetworks = 127.0.0.0/8" \
+    "inet_interfaces = all" \
+    "inet_protocols = ipv4" \
+    "virtual_mailbox_domains = regexp:$DOMAINS_FILE" \
+    "virtual_mailbox_maps = regexp:$RCPT_FILE" \
+    "virtual_transport = tgpipe" \
+    "tgpipe_destination_recipient_limit = 1" \
+    "message_size_limit = 26214400" \
+    "smtpd_banner = \$myhostname ESMTP" \
+    "smtpd_helo_required = yes" \
+    "smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination" \
+    "smtpd_recipient_restrictions = reject_non_fqdn_recipient, reject_non_fqdn_sender, reject_unknown_sender_domain, permit_mynetworks, reject_unauth_destination" \
+    "smtpd_tls_security_level = may" \
+    "smtpd_tls_cert_file = /etc/ssl/certs/ssl-cert-snakeoil.pem" \
+    "smtpd_tls_key_file = /etc/ssl/private/ssl-cert-snakeoil.key" \
+    "smtp_tls_security_level = may" \
+    "disable_vrfy_command = yes" \
+    "maximal_queue_lifetime = 3d" \
+    "bounce_queue_lifetime = 1d" \
+    "biff = no" \
+    "append_dot_mydomain = no"
+
+  echo "$first" > /etc/mailname
+
+  if ! grep -q '^tgpipe[[:space:]]' /etc/postfix/master.cf; then
+    cat >> /etc/postfix/master.cf <<'EOF'
+
+# tg-mail: 把收到的邮件通过管道交给 Telegram 转发程序
+tgpipe    unix  -       n       n       -       10      pipe
+  flags=DRq user=tgmail:tgmail argv=/opt/tg-mail/tg_mail_handler.py ${sender} ${recipient}
+EOF
+  fi
+
+  postfix check
+  systemctl enable postfix >/dev/null 2>&1 || true
+  systemctl restart postfix
+  ok "Postfix 配置完成并已重启"
+}
+
+open_firewall() {
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    ufw allow 25/tcp >/dev/null && ok "ufw 已放行 25/tcp"
+  fi
+}
+
+verify_listen() {
+  sleep 1
+  if ss -ltn | awk '$4 ~ /:25$/ {f=1} END{exit !f}'; then
+    if ss -ltnp | awk '$4 ~ /:25$/' | grep -q master; then
+      ok "Postfix 正在监听 25 端口"
+    else
+      warn "25 端口被其他程序占用:"; ss -ltnp | awk '$4 ~ /:25$/'
+    fi
+  else
+    warn "没有检测到 25 端口监听，请执行: systemctl status postfix"
+  fi
+}
+
+send_selftest() {
+  local d=selftest.tg-mail.invalid   # 任意域名都会被接收，无需真实存在
+  python3 - "$d" <<'PY'
+import smtplib, sys
+from email.message import EmailMessage
+d = sys.argv[1]
+m = EmailMessage()
+m["From"] = "selftest@localhost"
+m["To"] = "selftest@" + d
+m["Subject"] = "收信系统安装自检 / Self-test"
+m.set_content("如果你在 Telegram 收到这条消息，说明「收信 → Telegram 推送」链路已打通 ✅")
+with smtplib.SMTP("127.0.0.1", 25, timeout=20) as s:
+    s.sendmail("", ["selftest@" + d], m.as_bytes())
+print("自检邮件已投递给本机 Postfix")
+PY
+}
+
+summary() {
+  local ip
+  ip=$(curl -4fsS --max-time 5 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]' || true)
+  [[ -n "$ip" ]] || ip="<你的服务器公网IPv4>"
+  echo
+  echo "${G}==================== 安装完成 ====================${N}"
+  echo "收信范围: 任意域名 (不做域名校验)"
+  echo
+  echo "${Y}【1】任意域名只要把 A 记录指向本机即可收信 (bind9 改完记得加 serial 并 rndc reload):${N}"
+  echo "    mail.ccc.com.   IN  A   ${ip}      # 收 xxx@mail.ccc.com"
+  echo "    (若想收 xxx@ccc.com 这种根域名邮件，再加: ccc.com.  IN MX 10 mail.ccc.com.)"
+  echo
+  echo "${Y}【2】AWS 安全组 (Security Group) 必须放行入站 TCP 25${N}  (来源 0.0.0.0/0)"
+  echo
+  echo "${Y}【3】Telegram 应该已收到一条自检消息${N}，若没有，查看日志:"
+  echo "    journalctl -t tg-mail -n 30 --no-pager      # 转发程序日志"
+  echo "    journalctl -u postfix@- -n 50 --no-pager     # Postfix 日志"
+  echo "    postqueue -p                                 # 查看待重试队列"
+  echo
+  echo "常用命令:"
+  echo "    bash $0 test                      # 再发一封自检邮件"
+  echo "    nano $CONF_FILE      # 改 Token / Chat ID / SEND_EML=1(附带原始eml)"
+  echo "    bash $0 uninstall                 # 卸载"
+  echo "${G}===================================================${N}"
+}
+
+# ----------------------------------------------------------------------------
+do_install() {
+  need_root
+  check_os
+  prep_packages
+  collect_input
+  install_postfix
+  install_handler
+  write_config
+  configure_postfix
+  open_firewall
+  verify_listen
+  info "发送自检邮件..."
+  send_selftest || warn "自检投递失败，请查看 postfix 日志"
+  summary
+}
+
+do_test() {
+  need_root
+  [[ -f $DOMAINS_FILE ]] || die "尚未安装"
+  send_selftest
+  ok "已发送，请查看 Telegram"
+}
+
+do_uninstall() {
+  need_root
+  local ans=""
+  read -r -p "将卸载 Postfix 与转发程序并删除配置，确认请输入 yes: " ans </dev/tty || true
+  [[ "$ans" == "yes" ]] || die "已取消"
+  systemctl stop postfix 2>/dev/null || true
+  DEBIAN_FRONTEND=noninteractive apt-get purge -y postfix >/dev/null || true
+  apt-get autoremove -y >/dev/null || true
+  rm -rf "$INSTALL_DIR" "$CONF_DIR" /etc/postfix
+  id "$SVC_USER" &>/dev/null && userdel "$SVC_USER" || true
+  ok "已卸载"
+}
+
+case "${1:-install}" in
+  install)
+    [[ -n "${2:-}" ]] && TG_BOT_TOKEN="$2"
+    [[ -n "${3:-}" ]] && TG_CHAT_ID="$3"
+    do_install
+    ;;
+  update-handler)
+    need_root
+    install_handler
+    ok "转发程序已更新，下一封邮件即生效"
+    ;;
+  test)
+    do_test
+    ;;
+  uninstall)
+    do_uninstall
+    ;;
+  *)
+    # 第 1 个参数不是子命令时，视为直接传入的 TG_BOT_TOKEN，第 2 个参数视为 TG_CHAT_ID
+    TG_BOT_TOKEN="$1"
+    [[ -n "${2:-}" ]] && TG_CHAT_ID="$2"
+    do_install
+    ;;
+esac
