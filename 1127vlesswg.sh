@@ -349,7 +349,7 @@ sing-box check -c /etc/sing-box/config.json
 systemctl enable --now sing-box
 systemctl restart sing-box
 
-VLESS_LINK="vless://${UUID}@${PUB_IP}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${SNI}&fp=chrome&pbk=${PUB_KEY}&sid=${SHORT_ID}&type=tcp#EC2-${WG_IF}-MTU${TARGET_MTU}"
+VLESS_LINK="vless://${UUID}@${PUB_IP}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${SNI}&fp=safari&pbk=${PUB_KEY}&sid=${SHORT_ID}&type=tcp#EC2-${WG_IF}-MTU${TARGET_MTU}"
 
 printf '%s\n' "$VLESS_LINK"
 send_tg_link "$VLESS_LINK"
